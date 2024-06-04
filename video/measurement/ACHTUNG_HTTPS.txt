@@ -1,0 +1,3 @@
+
+chrome: start30.bat sreen enable
+https://141.64.64.17/dozweb/demo/html5/showcase2014/Video/v_measurment_webcam_screen/measurement_screen2/32_measurement_all.html

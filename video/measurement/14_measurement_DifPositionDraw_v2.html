@@ -1,0 +1,619 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-GB" lang="en-GB">
+
+<head>
+<meta charset="UTF-8" />
+<title>HTML5 webcam measurement</title>
+<meta name="description" content="HTML5 measement Histogram " />
+
+<style type="text/css">
+
+</style>
+</head>
+
+<body>
+
+
+<h1>MeasurementScreen - Dif YUV - Position Draw</h1>
+<div id="container">
+
+
+    <div class="select" style="display:none;">
+        <label for="audioSource">Audio input source: </label><select id="audioSource" ></select>
+    </div>
+
+    <div class="select" style="display:none;">
+        <label for="audioOutput">Audio output destination: </label><select id="audioOutput"></select>
+    </div>
+
+    <div class="select">
+ 	<input type="button" id="buttonStart" value="Start" onclick="start()" />
+	<input type="button" id="buttonStop" value="Stop" onclick="stop()" disabled="" />
+
+	 	<label> Input :  </label>
+	<select id="all_size_id" onchange="Input(value);">
+      <option value ="1">Webcam</option>
+      <option value ="0">Screen</option>
+
+    </select>
+	<label for="videoSource">Webcam source: </label><select id="videoSource"></select>
+
+
+		<span> Resolution: </span>
+	<select id="XResolution_id" onchange="XResolution=parseInt(value);">
+	  <option value = 1280 >1280</option>
+      <option value = 1024 >1024</option>
+	  <option value = 1920 >1920</option>
+	  <option value = 800 >800</option>
+      <option value = 640 >640</option>
+	  <option value = 340 >340</option>
+	 </select>
+	<span> AspectRatio: </span>
+	<select id="XResolutionXY_id" onchange="XResolutionXY =parseFloat(value);">
+	  <option value = 1.7777777777777777 >16:9</option>
+      <option value = 1.3333333333333333 >4:3</option>
+
+	 </select>
+	 	<span> FrameRate </span>
+	<select id="XResolutionXY_id" onchange="XFrameRate =parseFloat(value);">
+      <option value = 25 >25</option>
+	  <option value = 24 >24</option>
+	  <option value = 30 >30</option>
+      <option value = 48 >48</option>
+	  <option value = 50 >50</option>
+      <option value = 60 >60</option>
+	 </select>
+
+    </div>
+
+
+</div>
+
+
+
+<p>
+
+
+</p>
+ <video id="video" playsinline autoplay src="" onmouseover="this.style.cursor = 'pointer'"></video>
+
+
+
+<p>
+	<canvas id="canvas" />
+</p>
+<p>
+    	<input type="button" id="anaChrom" value="center" onclick="siftLeft=0;siftTop=0" />
+    <input type="button" id="anaChrom" value="buttom" onclick="siftLeft=0;siftTop=210" />
+    <input type="button" id="anaChrom" value="top" onclick="siftLeft=0;siftTop=-200" />
+    <input type="button" id="anaChrom" value="left" onclick="siftLeft=-100;siftTop=0" />
+		
+
+	<label> Position Y1:  </label>
+	<input type="text" size="3" id="SYposition" value="0" />
+		<label> Position X1:  </label>
+	<input type="text" size="3" id="SXposition" value="0" />
+		<label> Length Y2:  </label>
+	<input type="text" size="3" id="SYlength" value="720" />
+		<label> Length X2:  </label>
+	<input type="text" size="3" id="SXlength" value="1280" />
+
+</p>
+<p>
+	<canvas id="canvas2" />
+</p>
+<p>
+
+<pre id="preLog">Access to camera</pre>
+<script src="js/videoInput.js"></script>
+<script>
+
+// ---------------------------Var: local------------------
+var canvas = document.getElementById('canvas');
+var canvas2 = document.getElementById('canvas2');
+var c1_ctx ;//= canvas.getContext("2d");
+var c2_ctx ;//= canvas2.getContext("2d");
+var data, idata;
+var iImageIn, imgArrayIn, imgArrayIn2,imgArrayIn3, iImageOut, imgArrayOut;
+
+var zeile , column, SYposition, SXposition,SYlength, SXlength, zeile_anfang, zeile_ende ;
+var array_elemente=720;
+
+var histogram_y , PicY;
+
+
+
+
+var canvas1_hight = 200;
+var canvas2_distance =  0;
+var canvas2_hight = 255;
+var canvas2_text = 50;
+var grid_Pixel=["Pixel","255", "235", "128", " 16", "  0", "255", "240", "128", " 16", "  0", "255", "240", "128", " 16", "  0"];
+var grid_Volt=["mVolt","+761", "+700", "+350", "  +0", " -48", "+394", "+350", "  0", "-350", "-397",  "+394", "+350", "  0", "-350", "-397"];
+var grid_Percent=["Percent %","100", " 93", " 50", "  7", "  0", "+100", " 95", "50", "  7", "  0", "+100", " 95", "50", "  7", "  0"];
+var grid_HeaderRGB=["Red - R","Green - G", "Blue - B"];
+var grid_HeaderYUV=["Luminanz- Y"," Chroma - U (CB/B-Y)", "Chroma - V (CR/R-Y)"];
+
+
+//var oldFrame= new Object();
+ var   oldFrame= [];
+    maxOldFrames=20;
+
+    for(var i = 0; i < maxOldFrames ; i++) {
+     oldFrame[i]= new Object();
+     oldFrame[i].x=600;  
+     oldFrame[i].y=600; 
+     oldFrame[i].difSum=0;   
+     oldFrame[i].BewertungDifFaktor=0;    
+    }
+    
+    var oldX=[600,600,600,600,600,600,600,600,600,600,600,600];
+    var oldY=[500,500,500,500,500,500,500,500,500,500,500,500];
+    
+    
+var colorWhite = "rgb(255,255,255)";
+var colorRed =  "rgb(255,0,0)";
+
+
+
+
+
+var  SoebelIndex=0
+var MaxSumSoebel =0;
+var MaxGreenSoebel =0;
+var MaxColSoebel =0;
+var iGreenSoebel =0;
+var iColSoebel =0;
+var FilterType =0;
+
+var globalMaxValue = 0;
+var globalMaxIndex = 0;
+var globalMaxIndexR = 0;
+var globalMaxIndexG = 0;
+var globalMaxIndexB = 0;
+const EichungsHistogramm = [
+	255,255,255,255,
+	0,0,0,255,
+	0,0,0,255,
+	125,125,125,255,
+	125,130,135,255
+]
+
+
+
+var array_elemente=255;
+
+var histogram_y ;
+var histogram_u ;
+var histogram_v;
+
+var histogram_r;
+var histogram_g;
+var histogram_b;
+
+var max_histogram_y;
+var max_histogram_u;
+var max_histogram_v ;
+var max_histogram_r ;
+var max_histogram_g ;
+var max_histogram_b ;
+var aktR, aktG,aktB,aktY,aktU,aktV;
+ var siftLeft= 0
+    var siftTop= 210
+
+const ctxVideoOptsChroma = {
+	textOffset : 35,
+	maxAmplitude : 200,
+	zeroPoint : 215,
+	step: 2.75
+}
+// ------------------------ measurement------------------------
+function measurment() {
+  //  console.log("meas")
+
+  INITDeltaGOP();
+intervalId = setInterval(processingVideoMeasure, 1000/frameRate);
+  
+}
+
+function writeCanvas(iInput) {
+	c1_ctx.putImageData(iInput,canvas2_distance, canvas2_distance); // Draw the ImageData object.
+}
+    
+function writeCanvasPosition(iVideoPlayer) {
+    
+   
+   let  left =oldFrame.MX + siftLeft
+     let  right =oldFrame.MW
+       let  top =oldFrame.MY + siftTop
+         let  buttom =oldFrame.MH
+	canvas.getContext('2d').drawImage(iVideoPlayer, left, top, SXlength-right, SYlength-buttom, canvas2_distance, canvas2_distance,SXlength,SYlength);
+   // 	canvas.getContext('2d').drawImage(iVideoPlayer, SXposition+left, SYposition+top, SXlength-left-right, SYlength-top-buttom, canvas2_distance, canvas2_distance,SXlength,SYlength);
+}
+    
+function readCanvas(iVideoPlayer, ih) {  // Player; n. Line to read
+ 	canvas.getContext('2d').drawImage(iVideoPlayer, SXposition, SYposition, SXlength, SYlength, canvas2_distance, canvas2_distance,SXlength,SYlength);
+    idata = canvas.getContext('2d').getImageData(canvas2_distance, canvas2_distance,canvas.width-canvas2_distance-canvas2_distance,canvas.height-canvas2_distance-canvas2_distance);
+    data = idata.data;
+	return data;
+}
+function GRAYtoRGB(iOutput, iInput) {
+	let r,g,b;
+	for(var i = 0; i < iInput.length; i+=1) {
+	    r = iInput[i];
+	    g = iInput[i];
+	    b = iInput[i];
+		iOutput[i*4+0] = r;
+		iOutput[i*4+1] = g;
+		iOutput[i*4+2] = b;
+		iOutput[i*4+3] = 255;
+	}
+}
+ function YUVtoRGB(iOutput, iInput) {
+	let r,g,b,y,u,v;
+	for(var i = 0; i < iInput.length; i+=4) {
+	    y = iInput[i+0];
+	    u = iInput[i+1];
+	    v = iInput[i+2];
+        
+       
+	    r = y -0.00*u	  +1.13983*v;		
+	    g = y -0.39465*u -0.5806 * v;
+        b = y +2.03211*u +0.00*v	;	
+        
+		iOutput[i+0] = r;
+		iOutput[i+1] = g;
+		iOutput[i+2] = b;
+		iOutput[i+3] = 255;
+	}
+}
+function RGBtoGRAY(iOutput, iInput) {
+	let r,g,b ;
+	for(var i = 0; i < iOutput.length; i+=1) {
+		r = iInput[i*4+0];
+		g = iInput[i*4+1];
+		b = iInput[i*4+2];
+	let	y = Math.sqrt(0.241*(r*r)+0.691*(g*g)+0.068*(b*b));         //Helligkeitsberechnung --> sqrt( .241 R2 + .691 G2 + .068 B2 )
+		iOutput[i]   = runde(y,0);
+	}
+}
+
+ function RGBtoYUV(iOutput, iInput) {
+	let r,g,b,y,u,v ;
+	for(var i = 0; i < iOutput.length; i+=4) {
+		r = iInput[i+0];
+		g = iInput[i+1];
+		b = iInput[i+2];
+//	let	y = Math.sqrt(0.241*(r*r)+0.691*(g*g)+0.068*(b*b));         //Helligkeitsberechnung --> sqrt( .241 R2 + .691 G2 + .068 B2 )
+        
+        y = 0.299 *r +0.587 *g +0.114 *b;
+		u = -0.14713*r -0.28886*g +0.436*b;
+		v = 0.615*r-0.51499*g -0.10001*b;
+        
+
+
+
+
+        
+        
+      //      y = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+       //     u =  Math.floor(0.564*(b-y));
+      //      v =  Math.floor(0.713 *(r-y));
+		iOutput[i+0]   = runde(y,0);
+        iOutput[i+1]   = runde(u,0);
+        iOutput[i+2]   = runde(v,0);
+        iOutput[i+3]   = 255;
+	}
+}
+   
+function clearCanvas(iCanvas) {
+		iCanvas.getContext("2d").clearRect(0, 0, iCanvas.width, iCanvas.height);
+
+}
+ function clearMeasur() {
+		MaxSumSoebel =0;
+		SoebelIndex =0;
+		MaxGreenSoebel =0;
+        MaxColSoebel =0;
+        MaxColSoebel =0;
+
+}
+
+function runde(x, n) {
+  if (n < 0 || n > 14) return false;
+  var e = Math.pow(10, n);
+  var k = (Math.round(x * e) / e).toString();
+  if (n == 0 ) return k;
+  if (k.indexOf('.') == -1) k += '.';
+  k += e.toString().substring(1);
+  return k.substring(0, k.indexOf('.') + n+1);
+}
+//-------------------------------
+var startDelta
+var iImageOut
+var imgArrayOut
+var imgArrayIn2
+var iImageIn1
+var iImageIn2
+var iImageIn3
+var iImageIn4
+var iImageIn5
+array_elemente=921600 //data.length/4;
+
+
+   iImageIn1 = new Float32Array(array_elemente);
+  iImageIn2 = new Float32Array(array_elemente);
+      iImageIn3 = new Float32Array(array_elemente);
+          iImageIn4 = new Float32Array(array_elemente);
+      iImageIn5 = new Float32Array(array_elemente);
+    
+    
+          var calls 
+      var width 
+      var height 
+      
+      
+function INITDeltaGOP() {
+startDelta=8;
+//	mouseX=433;
+//	mouseY=142;
+  //var iCanvas =canvas;
+ //clearCanvas(iCanvas);
+ let   iCW = canvas.width
+ let iCH =canvas.height
+ iImageIn3 = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+ imgArrayIn3 = iImageIn3.data;
+   iImageIn2 = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+  imgArrayIn2 = iImageIn2.data;
+     iImageIn4 = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+ imgArrayIn4 = iImageIn4.data;
+   iImageIn5 = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+  imgArrayIn5 = iImageIn5.data;
+     iImageIn6 = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+  imgArrayIn6 = iImageIn6.data;
+  iImageOut = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+  imgArrayOut = iImageOut.data;
+    
+       // initialisation for segmentation
+    
+       calls = 0;
+       width = iCW; //iCHiCH, iCH
+       height = iCH;
+      region = new Array (width*height);
+      index = 0;
+      region[0] = {};
+      region[0]['weight'] = 0;
+      region[0]['x1'] = 0;
+      region[0]['x2'] = 0;
+      region[0]['y1'] = 0;
+      region[0]['y2'] = 0;
+}
+ 
+
+ 
+   
+function processingVideoMeasure() {  //ChromaGOP maxDelta-leer neuVideo.leer moderator
+
+    
+    imgArrayIn = readCanvas(video,2);
+    array_elemente=data.length/4;
+  
+	// Process chain begin    ---// Loop through the pixels, turning them in-RGB-Out
+    RGBtoYUV(imgArrayIn2, imgArrayIn); 
+    DeltaGOP_YUV(imgArrayIn5,imgArrayIn4,imgArrayIn3,imgArrayIn2) //R,G,B,DifR,DifG,DifB);// blue: 10,10,10   - any 8,8,10
+    YUVtoRGB(imgArrayOut, imgArrayIn5);
+    
+    // Process chain end    ---
+    writeCanvasPosition(video); //idata
+    analyseMotion(imgArrayIn6,imgArrayIn5,c1_ctx) 
+
+
+    StoreAray(imgArrayIn4, imgArrayIn3)
+    StoreAray(imgArrayIn3, imgArrayIn2)
+
+
+  //console.log ("m2")
+}
+
+ 
+ 
+ function DeltaGOP_YUV(iOutputSamples, iStoreSamples2, iStoreSamples, iInputSamples) { //YUV   ,  iR,iG,iB,iDifR, iDifG,iDifB
+  let dy
+  let du
+  let dv;
+  let y;
+  let Sy
+  let Ty;
+
+   for (var i = 0, n = iInputSamples.length; i < n; i += 1) {
+    
+      if (i%4!=0)  {
+          
+      }       else {
+         y = iInputSamples[i];
+         Sy = iStoreSamples[i];
+         Ty = iStoreSamples2[i];
+
+         dy =Math.abs((y-Ty)+(y-Sy));
+          
+         if(dy>50)   {
+             iOutputSamples[i] =dy
+         } else {
+             iOutputSamples[i] =0    
+         }
+      }
+  }
+}
+ 
+        
+     
+    
+    
+function StoreAray(iStoreSamples, iInputSamples)
+{
+
+	for (var i = 0, n = iInputSamples.length; i < n; i += 1) {
+		iStoreSamples[i] = iInputSamples[i]  ;
+	}
+//   console.log (startDelta)
+//   console.log (iInputSamples);
+//   console.log (iStoreSamples);
+}
+ 
+
+//---------------------------------------------------------------------------
+
+function isColourWhite(y,u,v) {
+ 
+        let level=10
+        if (y > level || u > level  || v > level ) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+    
+function analyseMotion(frameOut,frameIn,iContext) {
+     let DispW=720
+    let DispH=404
+      let left=200000   
+      let right=0 
+      let top=200000   
+      let bottom=0 
+      let maxDifSum=0
+      var mitteX 
+      var mitteY ;
+      let MX
+      let MY
+      let MW
+      let MH
+      let   DmitteX =0
+      let   DmitteY=0
+      let   DmitteSum=0
+          
+       for (x = 0; x < width; x++) {
+          for (y = 0; y < height; y++) {  
+              i = x + width*y;
+             
+              if (isColourWhite(frameIn[4*i],frameIn[4*i+1],frameIn[4*i+2])) {
+                if (x < left){left =x}
+                if (x > right){right =x}
+                if (y < top){top =y}
+                if (y > bottom){bottom =y}
+                maxDifSum +=frameIn[4*i]+frameIn[4*i+1]+frameIn[4*i+2]
+            }
+          }
+        }
+    
+         mitteX = (right -left)/2 + left
+         mitteY = (bottom - top)/2 +top
+         
+     // draw rectangle on canvas
+/* 
+         x=left
+         y= top
+         w =right-left
+         h =bottom-top
+        iContext.strokeStyle = "red";
+        iContext.strokeRect(x, y, w, h);
+  
+            
+
+
+          MX= mitteX-DispW/2
+          MY= mitteY-DispH/2
+          MW  =DispW
+          MH = DispH
+         
+        iContext.strokeStyle = "blue";
+        iContext.strokeRect(MX, MY, MW, MH);
+  
+         
+         
+         // version1
+          i=5
+      oldX[i]= oldX[i-1]
+      oldY[i]= oldY[i-1]
+         i=i-1
+      oldX[i]= oldX[i-1]
+      oldY[i]= oldY[i-1]        
+         i=i-1
+      oldX[i]= oldX[i-1]
+      oldY[i]= oldY[i-1]  
+         i=i-1
+      oldX[i]= oldX[i-1]
+      oldY[i]= oldY[i-1]
+         i=i-1
+      oldX[i]= oldX[i-1]
+      oldY[i]= oldY[i-1]
+         i=i-1 //i=0
+      oldX[i]=mitteX
+      oldY[i]=mitteY
+          DmitteX = (oldX[0]+ oldX[1]+ oldX[2]+oldX[3]+ oldX[4]+ oldX[5])/6
+          DmitteY = (oldY[0]+ oldY[1]+ oldY[2]+oldY[3]+ oldY[4]+ oldY[5])/6
+          DmitteSum=0
+//console.log(oldX)
+//console.log(oldY)
+
+
+       
+          MX= DmitteX-DispW/2
+          MY= DmitteY-DispH/2
+          MW  =DispW
+          MH = DispH
+//console.log(DmitteX)
+//console.log(DmitteY)     
+ 
+     iContext.strokeStyle = "yellow";
+  
+    iContext.strokeRect(MX, MY, MW, MH);
+    */  
+           // version2
+               
+        
+       
+           for (let i = oldFrame.length -1; i > 0; i=i-1) {
+            oldFrame[i].x= oldFrame[i-1].x
+            oldFrame[i].y= oldFrame[i-1].y   
+            oldFrame[i].difSum = oldFrame[i-1].difSum
+             DmitteSum += oldFrame[i].difSum  
+           }
+         
+            oldFrame[0].x= mitteX
+            oldFrame[0].y= mitteY
+            oldFrame[0].difSum = maxDifSum
+            DmitteSum += oldFrame[0].difSum  
+         oldFrame.DmitteSum=DmitteSum
+ //console.log(oldFrame)
+         
+         DmitteX =0
+         DmitteY =0
+         
+           for (let i =0 ; i < oldFrame.length; i++) {
+            oldFrame[i].BewertungDifFaktor= oldFrame[i].difSum / DmitteSum
+            DmitteX += oldFrame[i].BewertungDifFaktor * oldFrame[i].x
+            DmitteY += oldFrame[i].BewertungDifFaktor * oldFrame[i].y   
+           
+           }
+       //  DmitteX = DmitteX/ oldFrame.length
+        // DmitteY = DmitteY/ oldFrame.length
+         
+          oldFrame.MX= DmitteX-DispW/2
+          oldFrame.MY= DmitteY-DispH/2
+          oldFrame.MW  =DispW
+          oldFrame.MH = DispH
+         
+ //console.log(DmitteX)
+//console.log(DmitteY)   
+//  console.log(oldFrame)     
+         
+   //   iContext.strokeStyle = "green";
+   //   iContext.strokeRect(oldFrame.MX, oldFrame.MY, oldFrame.MW, oldFrame.MH);
+
+      }
+	  
+  
+</script>
+</body>
+</html>

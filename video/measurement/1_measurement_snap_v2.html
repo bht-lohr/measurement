@@ -1,0 +1,229 @@
+<!doctype html>
+<html> 
+<head>   
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="author" content="Jürgen Lohr">
+      <title>Measurement Video</title>
+
+
+<style>
+ div.select {
+    margin: 0 0 1em 0;
+  }
+  label {
+    color: black;
+  }
+    #audioSource, #audioOutput, #videoSource {
+  	   width:200px;
+   }
+ 
+  #meterL, #meterR {
+  position:relative;
+  width:100px;
+  height:10px;
+ }
+ 
+  #OverL, #OverR, span, label {
+   font-family:Verdana,sans-serif;
+   font-weight:bold;
+   background-color:#ffffff;
+   font-size: 60%;
+   position:absolut;
+ }
+ 
+ form {
+	box-shadow: 0 0 3px rgba(0, 0, 0, .7), inset 0 3px 3px rgba(0, 0, 0, .5);
+	width: 950px; 
+  }
+
+ div {
+    padding:5px;
+    margin: 0px;
+    font-family:Verdana,sans-serif;
+    font-size: 12px
+  }
+</style> 
+</head> 
+  
+<body> 
+
+<h1>MeasurementScreen - SnapShot</h1>
+<FORM NAME="formDevice" id="controls" METHOD="POST">
+    <div class="select" style="display:none;">
+        <label for="audioSource">Audio input source: </label><select id="audioSource" ></select>
+    </div>
+
+    <div class="select" style="display:none;">
+        <label for="audioOutput">Audio output destination: </label><select id="audioOutput"></select>
+    </div>
+	<p>
+		<input type="button" id="buttonStart" value="Start" onclick="startVideo()" />
+		<input type="button" id="buttonStop" value="Stop" onclick="stopVideo()" disabled="" />
+		<label> Input :  </label>
+		<select id="all_size_id" onchange="Input(value);">
+		  <option value ="1">Webcam</option>
+		  <option value ="0">Screen</option>
+		</select>
+
+			<label for="videoSource">Webcam source: </label><select id="videoSource"></select>
+
+	<span> Resolution: </span>
+	<select id="XResolution_id" onchange="XResolution=parseInt(value);">
+	  <option value = 1280 >1280</option>
+      <option value = 1024 >1024</option>
+	  <option value = 1920 >1920</option> 
+	  <option value = 800 >800</option>
+      <option value = 640 >640</option>
+	  <option value = 340 >340</option> 
+	 </select>
+	<span> X:Y: </span>
+	<select id="XResolutionXY_id" onchange="XResolutionXY =parseFloat(value);">
+	  <option value = 1.7777777777777777 >16:9</option>
+      <option value = 1.3333333333333333 >4:3</option>
+
+	 </select>
+	 <span> FrameRate </span>
+	<select id="XFrameRate" onchange="XFrameRate =parseFloat(value);">
+      <option value = 25 >25</option>
+	  <option value = 24 >24</option>
+	  <option value = 30 >30</option>
+      <option value = 48 >48</option>
+	  <option value = 50 >50</option>
+      <option value = 60 >60</option>
+	 </select>
+	<div>
+<video id="video" playsinline autoplay src="" style="display:none"></video>
+		<canvas id="canvasVideo" style="display:true"></canvas>
+     	</div>
+	</p>
+
+</FORM>
+ 
+ 
+
+<FORM NAME="formSnapShot" id="controls2" METHOD="POST">
+<p>
+	<canvas id="canvasPic" onmouseover="this.style.cursor = 'pointer'"></canvas>
+	<canvas id="canvasSnap" onmouseover="this.style.cursor = 'pointer'" ></canvas>
+		<canvas id="canvasPicStore" style="display:none"></canvas>
+
+</p>
+
+<p>
+	<input type="button" id="buttonSnap" value="Take Snapshot" onclick="snapshotVid()" disabled="" />
+	<input type="button" id="buttonSnapPosition" value="Take Position" onclick="shotPositionVid()" disabled="" />
+	<label> Position Y1: </label>
+	<input type="text" size="3" id="SYposition" value="100" />
+		<label> Position X1:  </label>
+	<input type="text" size="3" id="SXposition" value="100" />
+		<label> Length Y2:  </label>
+	<input type="text" size="3" id="SYlength" value="256" />
+		<label> Length X2:  </label>
+	<input type="text" size="3" id="SXlength" value="256" />
+			<span> Scale: </span>
+		<select id="fxScale_id" onchange="SnapScale(value);">
+	  <option value = 4 >1:4</option>
+      <option value = 1 >1:1</option>
+	  <option value = 8 >1:8</option>
+      <option value = 16 >1:16</option>
+	  <option value = 20 >1:20</option> 
+	  <option value = 24 >1:24</option> 
+	 	  </select>
+</br>		  
+	<label> Line: </label>
+	<input type="text" size="2" id="Mline" value="101" />
+	<label> Column: </label>
+	<input type="text" size="2" id="Mcolumn" value="180" />
+</p>
+</FORM>
+
+
+
+	 
+<pre id="preLog"></pre>
+
+<script src="js/mediaInputOutput.js"></script>  
+<script src="js/mediaMeasurement.js"></script>  
+<script>
+
+
+
+
+//--------------------Measure var SnapShot--------------
+var canvas1_hight = 200;
+var colorimetryVal =1;   
+var unitVal =0;
+
+
+var canvas2_distance =10;
+var canvas2_hight = 100;
+var canvas2_text = 50;
+														  
+ //canvas = document.getElementById('canvasVideo');
+// canvas2 = document.getElementById('canvasVid2');
+ var canvasPic_hightFaktor = parseFloat (document.getElementById("fxScale_id").value);
+ var canvas_distance =10; 
+var canvaSnap = document.getElementById('canvasSnap');
+ 
+var canvasPic = document.getElementById('canvasPic'); 
+var canvasPicStore = document.getElementById('canvasPicStore'); 
+var canvasVideo = document.getElementById('canvasVideo'); 
+ // ---------------------------wave Line------------------
+
+var canvasWL_hight = 100;
+var canvasWL_text = 50;
+// canvasWL = document.getElementById('canvasWL');
+// ---------------------------wave Frame------------------
+/*  var canvasWF_hight = 255;
+var canvasWF_text = 50;
+ 
+ canvasWF = document.getElementById('canvasWF');
+// ---------------------------vectore------------------
+var canvasVec_hight = 255;
+var canvasVec_scale=1.1;
+var canvasVec_text = 140;
+ canvasVec = document.getElementById('canvasVec');
+// ---------------------------hist------------------
+var canvasHis_hight = 100;
+var canvasHis_text = 50
+ canvasHis = document.getElementById('canvasHis');
+// ---------------------------fft------------------
+var canvasFFT_hight = 100;
+var canvasFFT_text = 50
+ canvasFFT = document.getElementById('canvasFFT');
+  var cxtFFT = canvasFFT.getContext("2d");  
+*/
+
+// --------------------------web gl------------------
+												   
+												   
+
+
+//----------------------measurment funkt----------------------------------------------
+  function initVideoMeasurement() {
+ var myButton ;
+
+}
+function clearVideoMeasurement() {
+	
+}
+   
+//---------------------------measurement----------------------
+  
+
+function processingVideoMeasurement() {  // Capture Device
+ 
+	// Process chain begin    ---// Loop through the pixels, turning them in-RGB-Out
+      imgArrayIn = readMinVideo(canvasVideo,video); 
+//  	  measureHistogram( imgArrayIn); 
+
+	// Process chain end
+//	writeCanvas(idata);  
+}
+
+
+
+</script>  
+</body>
+</html>

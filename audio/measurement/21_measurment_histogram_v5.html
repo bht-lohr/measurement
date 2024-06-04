@@ -1,0 +1,298 @@
+<!doctype html>
+<!--
+ *  Copyright (c) 2021 j.Lohr
+-->
+<html>
+<head>   
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="author" content="Jürgen Lohr">
+      <title>Measurement Audio</title>
+
+<style>
+  div.select {
+    margin: 0 0 1em 0;
+
+  }
+  label {
+    color: black;
+  }
+  
+  #audioSource, #audioOutput, #videoSource {
+  	   width:200px;
+   }
+ 
+  #meterL, #meterR {
+  position:relative;
+  width:100px;
+  height:10px;
+ }
+ 
+  #OverL, #OverR, span,label  {
+   font-family:Verdana,sans-serif;
+   font-weight:bold;
+   background-color:#ffffff;
+   font-size: 60%;
+   position:absolut;
+ }
+ 
+form {
+	box-shadow: 0 0 3px rgba(0, 0, 0, .7), inset 0 3px 3px rgba(0, 0, 0, .5);
+	width: 900px; 
+  }
+
+ div {
+    padding:5px;
+    margin: 0px;
+    font-family:Verdana,sans-serif;
+    font-size: 12px
+  }
+</style>
+</head>
+<body>
+	<h1>MeasurementAudio - Histogram </h1>
+    <h4>Chrome HTTPS</h4>
+	<FORM NAME="form1" id="controlsPegelAll" METHOD="POST">
+ 
+    <div class="select">
+		<input type="button" id="buttonStart" value="Start" onclick="startAudio()" />
+		<input type="button" id="buttonStop" value="Stop" onclick="stopAudio()" disabled=""  />
+
+        <label for="audioSource">Source: </label><select id="audioSource"></select>
+
+        <label for="audioOutput">Destination: </label><select id="audioOutput"></select>
+		   <input type="button" id="Mute" value="Speaker: off" onclick="mute()" style="background-color: #cc0000">    
+		   	<span > OutputSignal: </span>
+	<select id="outputType" onchange="outBuffer(value);">
+      <option value = 0 >Life-Event</option>
+      <option value = 1 >Snapshot-Buffer</option>
+    </select>
+    </div>
+
+    <div class="select" style="display:none;">
+        <label for="videoSource">Video source: </label><select id="videoSource"></select>
+    </div>
+
+
+    <div>
+	<p>
+		<span > Ch1: </span>
+		<meter id="meterL" value="-96.00"></meter>   <span id="OverL" onclick="overClear()">-96.00</span>
+		<span > dBFS </span>
+		</p>
+	<p>
+		<span > Ch2: </span>
+		<meter id="meterR" value="-96.00"></meter> <span id="OverR" onclick="overClear()">-96.00</span>
+		<span > dBFS </span>
+		</p>
+	    </div>
+  </FORM> 
+  </div>
+  <video id="video" playsinline autoplay style="display:none;"></video>
+<script src="js/mediaInputOutput.js"></script>  
+<script src="js/mediaMeasurement.js"></script>  
+	
+	 
+
+	<div>
+		<canvas id="canvas" onmouseover="this.style.cursor = 'pointer'" />
+		</canvas>
+	</div> 
+	<input type="button" id="buttonSnap" value="Take Snapshot" onclick="snapshot(SnapBuffer)" disabled="" />
+
+	<span>TimeScale: </span><input type="text" size="4" id="scalShot" value="4"> 
+	<span> Column:  </span>
+
+	<input type="text" size="3" id="SYposition" value="0" />
+	<input type="button" id="buttonSnapPosition" value="Take Inputs" onclick="shotPosition()" disabled="" />
+	<span style="display:none;"> Length Y2:  </span>
+	<input type="text" size="3" id="SYlength" value="1" style="display:none;"  />
+
+
+
+		
+			
+			
+	   <div>
+	   <canvas id="CanvasHistogram" onmouseover="this.style.cursor = 'pointer'"  ></canvas>
+		</div>
+		<input type="button" id="buttonmeasurementHis" value="Take measurement Histogram" onclick="measurementHis()" disabled="" />
+		<span> Loop: </span>
+	   <input type="button" id="IDHisLoop" value="off" name="yesSnapShot" onclick="HisLoop(name);" disabled="" style="background-color: #cc0000" />
+		 	<span style="display:none;"> audiometry :  </span>
+	<select id="all_sizeHis_id" onchange="colorimetryHis(value,iSYP,iSYL);" style="display:none;">
+      <option value = 1 >logarithmic</option>
+      <option value = 0 >linear</option>
+
+    </select>
+	<span style="display:none;"> Unit :  </span>
+	<select id="all_sizeHis_id" onchange="ColorUnitHis(value);" style="display:none;">
+
+	 <option value = 0 >Sample_Real</option>
+	  <option value = 1 >Volt</option>
+	  <option value = 2 >Percent %</option>
+     <option value = 3 >dBFs</option>
+	 <option value = 4 >dBu</option> 
+	  <option value = 5 >Sample_Integer</option> 
+	 	  </select>
+	
+	<span> Column :  </span>
+	<input type="text" size="3" id="MHcolumn" value="11" />
+
+	 	  </select>
+
+
+		  
+
+
+	<pre id="preLog"></pre>
+<script>
+
+
+		  
+//--------------------Measure SnapShot--------------
+ 
+
+var canvas = document.getElementById('canvas');
+var c_ctx = canvas.getContext("2d");
+ 	//Mouse Position for Line and Point
+	canvas.addEventListener('mousedown', function(evt) {getMousePosScreenDownAudio(canvas, evt);}, false);	
+	canvas.addEventListener('mouseup', function(evt) {getMousePosScreenUpAudio(canvas, evt);}, false);
+
+   
+//----------------------measurment funkt----------------------------------------------
+function initAudioMeasurement() {
+ var myButton ;
+	 myButton = document.getElementById('buttonStart');
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('buttonStop');
+	if (myButton) myButton.disabled = false;
+	myButton = document.getElementById('buttonSnap');
+	if (myButton) myButton.disabled = false;
+	myButton = document.getElementById('buttonSnapPosition');
+	if (myButton) myButton.disabled = false;
+	myButton = document.getElementById('buttonmeasurementHis');	
+	if (myButton) myButton.disabled = false;
+
+
+	myButton = document.getElementById('IDHisLoop');
+	if (myButton) myButton.disabled = false;
+
+
+ 	  
+     visual_loopHis=true;		
+	 	 HisLoop("noSnapShot");
+
+}
+function clearAudioMeasurement() {
+	 overClear();
+	 meterClear();
+	 
+	var myButton ; 
+	myButton = document.getElementById('buttonStop');
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('buttonSnap');
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('buttonSnapPosition');
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('buttonmeasurementHis');	
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('IDHisLoop');
+	if (myButton) myButton.disabled = true;
+}
+ 
+  
+//---------------------------measurement----------------------
+ function processingAudioMeasurement(event) {  
+ // readWebAudio(audArrayIn,event);
+ //console.log(event);
+ 	measurementPegel(event);  
+	copySnapshotBuffer(SnapBuffer,event);   
+
+}
+
+//----------------------------          //WebAudio
+
+
+ //var zeile=0;
+ //var frameRate = 48000;
+ //-------snapShot
+ 
+ 
+ var SYposition,SYlength;
+ var iSYL =0;
+var  iSYP=0;
+var canvas1_hight = 300;  
+var canvas2_hight = 100; 
+var canvas2_distance =10;
+var canvas2_text = 70;
+var colorimetryVal =0;
+var intervalId;
+var intervalId2;
+var intervalId3;
+var intervalId4;
+var intervalId5;
+
+//----------------------------   Wave
+
+//----------------------------   fft
+
+
+//----------------------------   His
+var canvas4= document.getElementById('CanvasHistogram');
+var c4_ctx = canvas4.getContext("2d");
+	canvas4.addEventListener('click', function(evt) {getMousePosAudio("canvas4",canvas4, evt);}, false);
+
+
+var unitValHis = 0;
+
+//  var button_normal = "#dddddd";
+//var button_on = "#66CC33";
+
+var max_amplitude=100*2;
+var histogram_m = new Float32Array(max_amplitude);
+var histogram_r = new Float32Array(max_amplitude);
+var histogram_l = new Float32Array(max_amplitude);
+
+  
+ 
+var MHXScale =0;
+ var MHColumn =0 ;
+ var visual_loopHis=false;
+//----------------------------   Loutness
+
+ // ---------------------------main
+
+
+
+
+
+
+
+
+
+
+
+
+// --------------------------------- Source Destination Define ----------------
+
+//-------------------------------------------------------------
+
+
+
+ 
+
+
+
+
+
+
+
+
+//------------------------Pegel-------------------------
+
+
+
+</script>
+</body>
+</html>  

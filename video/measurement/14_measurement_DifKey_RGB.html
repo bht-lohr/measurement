@@ -1,0 +1,679 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-GB" lang="en-GB">
+
+<head>
+<meta charset="UTF-8" />
+<title>HTML5 webcam measurement</title>
+<meta name="description" content="HTML5 measement Histogram " />
+
+<style type="text/css">
+
+</style>
+</head>
+
+<body>
+
+
+<h1>MeasurementScreen - Delta RGB - Chroma Key</h1>
+<div id="container">
+
+
+    <div class="select" style="display:none;">
+        <label for="audioSource">Audio input source: </label><select id="audioSource" ></select>
+    </div>
+
+    <div class="select" style="display:none;">
+        <label for="audioOutput">Audio output destination: </label><select id="audioOutput"></select>
+    </div>
+
+    <div class="select">
+ 	<input type="button" id="buttonStart" value="Start" onclick="start()" />
+	<input type="button" id="buttonStop" value="Stop" onclick="stop()" disabled="" />
+
+	 	<label> Input :  </label>
+	<select id="all_size_id" onchange="Input(value);">
+      <option value ="1">Webcam</option>
+      <option value ="0">Screen</option>
+
+    </select>
+	<label for="videoSource">Webcam source: </label><select id="videoSource"></select>
+
+
+		<span> Resolution: </span>
+	<select id="XResolution_id" onchange="XResolution=parseInt(value);">
+	  <option value = 1280 >1280</option>
+      <option value = 1024 >1024</option>
+	  <option value = 1920 >1920</option>
+	  <option value = 800 >800</option>
+      <option value = 640 >640</option>
+	  <option value = 340 >340</option>
+	 </select>
+	<span> AspectRatio: </span>
+	<select id="XResolutionXY_id" onchange="XResolutionXY =parseFloat(value);">
+	  <option value = 1.7777777777777777 >16:9</option>
+      <option value = 1.3333333333333333 >4:3</option>
+
+	 </select>
+	 	<span> FrameRate </span>
+	<select id="XResolutionXY_id" onchange="XFrameRate =parseFloat(value);">
+      <option value = 25 >25</option>
+	  <option value = 24 >24</option>
+	  <option value = 30 >30</option>
+      <option value = 48 >48</option>
+	  <option value = 50 >50</option>
+      <option value = 60 >60</option>
+	 </select>
+
+    </div>
+
+
+</div>
+
+
+
+<p>
+
+
+</p>
+ <video id="video" playsinline autoplay src="" onmouseover="this.style.cursor = 'pointer'"></video>
+
+
+
+<p>
+	<canvas id="canvas" />
+</p>
+<p>
+	<label> Position Y1:  </label>
+	<input type="text" size="3" id="SYposition" value="0" />
+		<label> Position X1:  </label>
+	<input type="text" size="3" id="SXposition" value="0" />
+		<label> Length Y2:  </label>
+	<input type="text" size="3" id="SYlength" value="720" />
+		<label> Length X2:  </label>
+	<input type="text" size="3" id="SXlength" value="1280" />
+
+</p>
+<p>
+	<canvas id="canvas2" />
+</p>
+<p>
+	<input type="button" id="anaChrom" value="store BackIMG" onclick="INITDeltaGOP()" />
+
+	<label> Channel:  </label>
+	 	<select id="channel" onchange="">
+	  <option value = 1 >R</option>
+      <option value = 2 >G</option>
+	  <option value = 3 >B</option>
+	  <option value = 4 >Y</option>
+ <option value = 5 >U</option>
+  <option value = 6 >V</option>
+	 </select>
+
+
+		<label> Red:  </label>
+	<input type="text" size="3" id="MRed" value="5" />
+		<label> Green:  </label>
+	<input type="text" size="3" id="MGreen" value="255" />
+		<label> Blue:  </label>
+	<input type="text" size="3" id="MBlue" value="55" />
+  <label> Dif-Level-R:  </label>
+<input type="text" size="3" id="DifValueR" value="10" />
+<label> Dif-Level-G:  </label>
+<input type="text" size="3" id="DifValueG" value="10" />
+<label> Dif-Level-B:  </label>
+<input type="text" size="3" id="DifValueB" value="10" />
+</p>
+
+
+<pre id="preLog">Access to camera</pre>
+<script src="js/videoInput.js"></script>
+<script>
+
+// ---------------------------Var: local------------------
+var canvas = document.getElementById('canvas');
+var canvas2 = document.getElementById('canvas2');
+var c1_ctx ;//= canvas.getContext("2d");
+var c2_ctx ;//= canvas2.getContext("2d");
+var data, idata;
+var iImageIn, imgArrayIn, imgArrayIn2,imgArrayIn3, iImageOut, imgArrayOut;
+
+var zeile , column, SYposition, SXposition,SYlength, SXlength, zeile_anfang, zeile_ende ;
+var array_elemente=720;
+
+var histogram_y , PicY;
+
+
+
+
+var canvas1_hight = 200;
+var canvas2_distance =  0;
+var canvas2_hight = 255;
+var canvas2_text = 50;
+var grid_Pixel=["Pixel","255", "235", "128", " 16", "  0", "255", "240", "128", " 16", "  0", "255", "240", "128", " 16", "  0"];
+var grid_Volt=["mVolt","+761", "+700", "+350", "  +0", " -48", "+394", "+350", "  0", "-350", "-397",  "+394", "+350", "  0", "-350", "-397"];
+var grid_Percent=["Percent %","100", " 93", " 50", "  7", "  0", "+100", " 95", "50", "  7", "  0", "+100", " 95", "50", "  7", "  0"];
+var grid_HeaderRGB=["Red - R","Green - G", "Blue - B"];
+var grid_HeaderYUV=["Luminanz- Y"," Chroma - U (CB/B-Y)", "Chroma - V (CR/R-Y)"];
+
+var colorWhite = "rgb(255,255,255)";
+var colorRed =  "rgb(255,0,0)";
+
+
+
+
+
+var  SoebelIndex=0
+var MaxSumSoebel =0;
+var MaxGreenSoebel =0;
+var MaxColSoebel =0;
+var iGreenSoebel =0;
+var iColSoebel =0;
+var FilterType =0;
+
+var globalMaxValue = 0;
+var globalMaxIndex = 0;
+var globalMaxIndexR = 0;
+var globalMaxIndexG = 0;
+var globalMaxIndexB = 0;
+const EichungsHistogramm = [
+	255,255,255,255,
+	0,0,0,255,
+	0,0,0,255,
+	125,125,125,255,
+	125,130,135,255
+]
+
+
+
+var array_elemente=255;
+
+var histogram_y ;
+var histogram_u ;
+var histogram_v;
+
+var histogram_r;
+var histogram_g;
+var histogram_b;
+
+var max_histogram_y;
+var max_histogram_u;
+var max_histogram_v ;
+var max_histogram_r ;
+var max_histogram_g ;
+var max_histogram_b ;
+var aktR, aktG,aktB,aktY,aktU,aktV;
+
+
+const ctxVideoOptsChroma = {
+	textOffset : 35,
+	maxAmplitude : 200,
+	zeroPoint : 215,
+	step: 2.75
+}
+// ------------------------ measurement------------------------
+function measurment() {
+
+  INITDeltaGOP();
+intervalId = setInterval(processingVideoMeasure, 1000/frameRate);
+}
+
+function writeCanvas(iInput) {
+	c1_ctx.putImageData(iInput,canvas2_distance, canvas2_distance); // Draw the ImageData object.
+}
+
+function readCanvas(iVideoPlayer, ih) {  // Player; n. Line to read
+ 	canvas.getContext('2d').drawImage(iVideoPlayer, SXposition, SYposition, SXlength, SYlength, canvas2_distance, canvas2_distance,SXlength,SYlength);
+    idata = canvas.getContext('2d').getImageData(canvas2_distance, canvas2_distance,canvas.width-canvas2_distance-canvas2_distance,canvas.height-canvas2_distance-canvas2_distance);
+    data = idata.data;
+	return data;
+}
+function GRAYtoRGB(iOutput, iInput) {
+	let r,g,b;
+	for(var i = 0; i < iInput.length; i+=1) {
+	    r = iInput[i];
+	    g = iInput[i];
+	    b = iInput[i];
+		iOutput[i*4+0] = r;
+		iOutput[i*4+1] = g;
+		iOutput[i*4+2] = b;
+		iOutput[i*4+3] = 255;
+	}
+}
+function RGBtoGRAY(iOutput, iInput) {
+	let r,g,b ;
+	for(var i = 0; i < iOutput.length; i+=1) {
+		r = iInput[i*4+0];
+		g = iInput[i*4+1];
+		b = iInput[i*4+2];
+	let	y = Math.sqrt(0.241*(r*r)+0.691*(g*g)+0.068*(b*b));         //Helligkeitsberechnung --> sqrt( .241 R2 + .691 G2 + .068 B2 )
+		iOutput[i]   = runde(y,0);
+	}
+}
+function clearCanvas(iCanvas) {
+		iCanvas.getContext("2d").clearRect(0, 0, iCanvas.width, iCanvas.height);
+
+}
+ function clearMeasur() {
+		MaxSumSoebel =0;
+		SoebelIndex =0;
+		MaxGreenSoebel =0;
+        MaxColSoebel =0;
+        MaxColSoebel =0;
+
+}
+
+function runde(x, n) {
+  if (n < 0 || n > 14) return false;
+  var e = Math.pow(10, n);
+  var k = (Math.round(x * e) / e).toString();
+  if (n == 0 ) return k;
+  if (k.indexOf('.') == -1) k += '.';
+  k += e.toString().substring(1);
+  return k.substring(0, k.indexOf('.') + n+1);
+}
+//-------------------------------
+var startDelta
+var iImageOut
+var imgArrayOut
+var imgArrayIn2
+var iImageIn2
+var iImageIn3
+function INITDeltaGOP() {
+startDelta=8;
+//	mouseX=433;
+//	mouseY=142;
+  //var iCanvas =canvas;
+ //clearCanvas(iCanvas);
+ let   iCW = canvas.width
+ let iCH =canvas.height
+ iImageIn3 = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+ imgArrayIn3 = iImageIn3.data;
+   iImageIn2 = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+  imgArrayIn2 = iImageIn2.data;
+  iImageOut = canvas.getContext('2d').createImageData(iCW, iCH);  //Processing Array W and H
+  imgArrayOut = iImageOut.data;
+}
+function processingVideoMeasure() {  //ChromaGOP maxDelta-leer neuVideo.leer moderator
+  var R = parseFloat(document.getElementById("MRed").value);
+  var G = parseFloat(document.getElementById("MGreen").value);
+  var B = parseFloat(document.getElementById("MBlue").value);
+  var DifR = parseFloat(document.getElementById("DifValueR").value);
+  var DifG = parseFloat(document.getElementById("DifValueG").value);
+  var DifB = parseFloat(document.getElementById("DifValueB").value);
+	var Channel = parseInt(document.getElementById("channel").value);
+			imgArrayIn = readCanvas(video,2);
+
+      array_elemente=data.length/4;
+   PicY = new Float32Array(array_elemente);
+// PicY = createHistogram(data, true,Channel);
+
+	// Process chain begin    ---// Loop through the pixels, turning them in-RGB-Out
+
+if (startDelta>>0) {StoreAray(imgArrayIn2, imgArrayIn);  startDelta-=1
+} else {
+  //   	DeltaGOP_Chroma12_YUV(imgArrayOut,imgArrayIn3,imgArrayIn2, imgArrayIn,R,G,B,DifR,DifG,DifB);  //blue: 500,400,15   - any 6,8,8
+ 	DeltaGOP_Chroma12_RGB(imgArrayOut,imgArrayIn3,imgArrayIn2,  imgArrayIn,R,G,B,DifR,DifG,DifB);// blue: 10,10,10   - any 8,8,10
+      PicY = createHistogram(imgArrayIn3, true,Channel);
+      var iCanvas =canvas2;
+     clearCanvas(iCanvas);
+
+
+        fillCustomCanvasVideoChroma(PicY, c2_ctx, ctxVideoOptsChroma);
+    	writeCanvas(iImageOut);
+}
+
+  //console.log ("m2")
+}
+ var help_1 =0
+ var help_2=0
+
+function DeltaGOP_Chroma12_YUV(iOutputSamples, iImgArrayIn3, iStoreSamples, iInputSamples,  iR,iG,iB,iDifR, iDifG,iDifB) { //YUV
+
+   let dy
+   	let du
+    	let dv
+
+	for (var i = 0, n = iInputSamples.length; i < n; i += 4) {
+    r = iInputSamples[i+0];
+    g = iInputSamples[i+1];
+    b = iInputSamples[i+2];
+    let y = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+    let u = 128+ Math.floor(0.564*(b-y));
+    let v =  128+Math.floor(0.713 *(r-y));
+    Sr = iStoreSamples[i+0];
+    Sg = iStoreSamples[i+1];
+    Sb = iStoreSamples[i+2];
+    let Sy = Math.floor(0.299 * Sr + 0.587 * Sg + 0.114 * Sb);
+    let Su = 128+ Math.floor(0.564*(Sb-Sy));
+    let Sv =  128+Math.floor(0.713 *(Sr-Sy));
+
+	     dy = Math.abs(y -  Sy ) ;
+		 du = Math.abs(u -  Su ) ;
+		 dv = Math.abs(v - Sv ) ;
+	//	let Y = (dR+dG+dB);
+	 if (dy < iDifR &&  du < iDifG  && dv < iDifB ){ //YUV
+
+	//	if ( dR <= iValue &&  dG <= iValue  && dB <= iValue ) { //RGB
+      iOutputSamples[i+0] = iR ;
+      iOutputSamples[i+1] = iG ;
+      iOutputSamples[i+2] = iB ;
+      iOutputSamples[i+3] = 255 ; //iOutputSamples[i+3] = 0 ;
+    //    help_1++
+    }		else
+    {  // help_2++
+      iOutputSamples[i+0] =  iInputSamples[i+0]  ;
+  		 iOutputSamples[i+1] =  iInputSamples[i+1]  ;
+  		iOutputSamples[i+2] = iInputSamples[i+2]  ;
+      iOutputSamples[i+3] = 255 ; //iOutputSamples[i+3] = 255 ;
+    }
+    iImgArrayIn3[i+0] =dy;
+    iImgArrayIn3[i+1] =du;
+    iImgArrayIn3[i+2] =dv;
+    iImgArrayIn3[i+3] =255;
+	}
+//  console.log (help_1 +"  - " + help_2)
+  //  console.log (iInputSamples);
+  //  console.log (iStoreSamples);
+}
+function DeltaGOP_Chroma12_RGB(iOutputSamples, iImgArrayIn3,iStoreSamples, iInputSamples, iR,iG,iB,iDifR, iDifG,iDifB)
+{
+
+
+   let dR
+   	let dG
+    	let dB
+
+	for (var i = 0, n = iInputSamples.length; i < n; i += 4) {
+		iOutputSamples[i+0] =  iInputSamples[i+0]  ;
+		 iOutputSamples[i+1] =  iInputSamples[i+1]  ;
+		iOutputSamples[i+2] = iInputSamples[i+2]  ;
+	     dR = Math.abs(iStoreSamples[i+0] -  iInputSamples[i+0] ) ;
+		 dG = Math.abs(iStoreSamples[i+1] -  iInputSamples[i+1] ) ;
+		 dB = Math.abs(iStoreSamples[i+2] - iInputSamples[i+2] ) ;
+		let Y = (dR+dG+dB);
+	//	if (Y <= iValue) iOutputSamples[i+3] = 0 ;
+		if ( dR <= iDifR &&  dG <= iDifG  && dB <= iDifB ) {
+      iOutputSamples[i+0] = iR ;
+      iOutputSamples[i+1] = iG ;
+      iOutputSamples[i+2] = iB ;
+      iOutputSamples[i+3] = 255 ; //iOutputSamples[i+3] = 0 ;
+//        help_1++
+    }		else
+    {  // help_2++
+    //  iOutputSamples[i+0] = 170 ;
+    //  iOutputSamples[i+1] = 170 ;
+    //  iOutputSamples[i+2] = 170 ;
+      iOutputSamples[i+3] = 255 ; //iOutputSamples[i+3] = 255 ;
+    }
+iImgArrayIn3[i+0] =dR;
+iImgArrayIn3[i+1] =dG;
+iImgArrayIn3[i+2] =dB;
+iImgArrayIn3[i+3] =255;
+	}
+//  console.log (help_1 +"  - " + help_2)
+  //  console.log (iInputSamples);
+  //  console.log (iStoreSamples);
+}
+
+
+function StoreAray(iStoreSamples, iInputSamples)
+{
+
+	for (var i = 0, n = iInputSamples.length; i < n; i += 1) {
+		iStoreSamples[i] = iInputSamples[i]  ;
+	}
+//   console.log (startDelta)
+//   console.log (iInputSamples);
+//   console.log (iStoreSamples);
+}
+function DeltaGOPVisual(iOutputSamples, iStoreSamples, iInputSamples)
+{
+	for (var i = 0, n = iInputSamples.length; i < n; i += 1) {
+		iOutputSamples[i] = Math.abs(iStoreSamples [i]- iInputSamples[i] ) ;
+        iOutputSamples[i] += 127;
+	}
+}
+
+
+/*
+function processingVideoMeasure() {  // Capture Device
+let lineSum;
+
+
+
+	//-------------------
+let minR,minG,minB, maxR,maxG,maxB;
+ data = readCanvas(video);
+	// Process chain begin    ---// Loop through the pixels, turning them in-RGB-Out
+	var R = parseFloat(document.getElementById("MRed").value);
+	var G = parseFloat(document.getElementById("MGreen").value);
+	var B = parseFloat(document.getElementById("MBlue").value);
+
+	var Channel = parseInt(document.getElementById("channel").value);
+	     array_elemente=data.length/4;
+    PicY = new Float32Array(array_elemente);
+	PicY = createHistogram(data, true,Channel);
+	difAmplitude (data, data, R,G,B,minR,minG,minB, maxR,maxG,maxB);
+	// Process chain end
+
+  //	customCanvas = document.getElementById('customCanvas');
+	// let histogram = createHistogram(EichungsHistogramm);
+
+  var iCanvas =canvas2;
+ clearCanvas(iCanvas);
+
+
+    fillCustomCanvasVideoChroma(PicY, c2_ctx, ctxVideoOptsChroma);
+	writeCanvas(idata);
+
+//	LogArray = ["imgArrayIn", "BridnessSamples",  "imgArrayOut"];
+}
+
+function difAmplitude(iOutput, iInput, iR,iG,iB,minR,minG,minB, maxR,maxG,maxB) {
+  let r,g,b,dr,dg,db, DeltaRGB,DeltaRGB_Gr,DeltaRGB_Orang,DeltaRGB_rot,rr,gg,bb;
+  let lev1=10;
+  let lev2=20;
+
+   minR=255;
+   maxR=255;
+   minG=255;
+   maxG=255;
+   minB=255;
+   maxB=255;
+
+	for(var i = 0; i < iInput.length; i+=4) {
+		r = iInput[i+0];
+		g = iInput[i+1];
+		b = iInput[i+2];
+
+		if (minR>r) minR=r;
+		if (minG>g) minG=g;
+		if (minB>b) minB=b;
+		if (maxR<r) maxR=r;
+		if (maxG<g) maxG=g;
+		if (maxB<b) maxB=b;
+
+		dr=Math.abs(r-iR);
+		dg=Math.abs(g-iG);
+		db=Math.abs(b-iB);
+		DeltaRGB=(dr+dg+db);
+		DeltaRGB_Gr=DeltaRGB*4;
+		DeltaRGB_Orang=(DeltaRGB)*3;
+		DeltaRGB_rot=(DeltaRGB)*2;
+		if (dr>lev2||dg>lev2 || db>lev2) {rr=255-DeltaRGB; gg=0;  bb=0;}
+
+		else if (dr>lev1||dg>lev1 || db > lev1) {rr=lev1+255-DeltaRGB_Orang; gg=lev1+200-DeltaRGB_Orang/2; bb=0;}
+		else {rr=0; gg=lev2+255-DeltaRGB_rot; bb=0;}
+
+
+			iOutput[i+0] = rr;
+			iOutput[i+1] = gg;
+			iOutput[i+2] = bb;
+			iOutput[i+3] = 255;
+
+	}
+
+}
+*/
+
+	var histoR = [...Array(256).keys()];
+	var histoG = [...Array(256).keys()];
+	var histoB = [...Array(256).keys()];
+  var histo = [...Array(256).keys()];
+	var histoU = [...Array(256).keys()];
+  var histoV = [...Array(256).keys()];
+
+	var maxValueX = 0;
+	var maxValueR = 0;
+	var maxValueG = 0;
+	var maxValueB = 0;
+  var maxValueU = 0;
+  var maxValueV = 0;
+
+function createHistogram(imgArray, total = false,iChannel) {
+	let gray;
+	 maxValueX = 0;
+	 maxValueR = 0;
+	 maxValueG = 0;
+	 maxValueB = 0;
+   maxValueU = 0;
+   maxValueV = 0;
+	for (var i = 0; i < histo.length; i++) {
+		histo[i] = 0;
+	}
+
+
+	for (var i = 0; i < imgArray.length; i+=4) {
+		let r = imgArray[i];
+		let g = imgArray[i+1];
+		let b = imgArray[i+2];
+    let y = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+    let u = 128+ Math.floor(0.564*(b-y));
+    let v =  128+Math.floor(0.713 *(r-y));
+		let rr = Math.floor( r );
+		let gg = Math.floor( g );
+		let bb = Math.floor( b);
+    let yy = Math.floor( y );
+    let uu = Math.floor( u );
+    let vv = Math.floor( v );
+		switch(iChannel){
+			case 1:
+				  gray = rr
+				break;
+			case 2:
+				  gray = gg
+				break;
+			case 3:
+				  gray = bb
+				break;
+        case 4:
+            gray = yy
+          break;
+          case 5:
+              gray = uu
+            break;
+            case 6:
+                gray = vv
+              break;
+				default:
+				gray = rr
+        }
+		histo[gray] += 1;
+		histoR[rr] += 1;
+		histoG[gg] += 1;
+		histoB[bb] += 1;
+    histoU[uu] += 1;
+    histoV[vv] += 1;
+		if (histo[gray] > maxValueX) {
+			maxValueX = parseInt(histo[gray]);
+			if (gray!=0)globalMaxIndex = gray;
+		}
+	if (histoR[rr] > maxValueR) {
+			maxValueR = parseInt(histoR[rr]);
+			if (rr!=0)globalMaxIndexR = rr;
+		}
+		if (histoG[gg] > maxValueG) {
+			maxValueG = parseInt(histoG[gg]);
+			if (gg!=0)globalMaxIndexG = gg;
+		}
+		if (histoB[bb] > maxValueB) {
+			maxValueB = parseInt(histoB[bb]);
+			if (bb!=0)globalMaxIndexB = bb;
+		}
+    if (histoU[uu] > maxValueU) {
+      maxValueU = parseInt(histoU[uu]);
+      if (uu!=0)globalMaxIndexU = uu;
+    }
+    if (histoV[vv] > maxValueV) {
+      maxValueV = parseInt(histoV[vv]);
+      if (vv!=0)globalMaxIndexV = vv;
+    }
+	}
+
+	globalMaxValue = maxValueX;
+//console.log(globalMaxIndexR);
+	return total ? histo.map(x => x / maxValueX) : histo;
+}
+
+function fillCustomCanvasVideoChroma(iArray, iCTX, options) {
+	let ctx2 = iCTX;
+		  let iCanvas =canvas2;
+		  ctx2.textBaseline = "middle";
+	ctx2.font = "15px Courier-New";
+	ctx2.fillStyle="#000000";
+	ctx2.fillText("Max HistoValue: "+globalMaxValue+", HistoIndex:"+globalMaxIndex, 0, options.zeroPoint - options.maxAmplitude);
+	ctx2.fillText(0, 0, options.zeroPoint);
+	ctx2.fillText("y: Korrelation, x: Value (0 bis 255)", options.textOffset, options.zeroPoint + 35);
+
+	ctx2.fillStyle="#cccccc";
+	ctx2.fillRect(
+		options.textOffset,
+		options.zeroPoint - options.maxAmplitude+10,
+
+		iCanvas.width,
+		options.zeroPoint
+	);
+
+	ctx2.fillStyle="#000000";
+	for (var i = 0; i < iArray.length; i++) {
+		ctx2.fillRect(
+			i*options.step + options.textOffset,
+			options.zeroPoint+10,
+			options.step,
+			- iArray[i] * options.maxAmplitude
+		);
+
+		if (i % 16 == 0) {
+			ctx2.fillText(i, i*options.step + options.textOffset, options.zeroPoint + 10+10);
+		}
+	}
+}
+
+function analyseChroma(){
+
+
+ document.getElementById("MRed").value =globalMaxIndexR;
+
+document.getElementById("MGreen").value=globalMaxIndexG;
+
+document.getElementById("MBlue").value=globalMaxIndexB;
+}
+
+function ScalaMAX(){
+ ctxVideoOptsSoebel.maxAmplitude = 200/ MaxSumSoebel ;
+ var iCanvas =canvas2;
+ clearCanvas(iCanvas);
+         MaxSumSoebel =0;
+		SoebelIndex =0;
+		MaxGreenSoebel =0;
+          MaxColSoebel =0;
+
+}
+
+//---------------------------------------------------------------------------
+
+
+</script>
+</body>
+</html>

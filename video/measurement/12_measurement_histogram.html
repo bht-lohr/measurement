@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-GB" lang="en-GB">
+ 
+<head> 
+<meta charset="UTF-8" />
+<title>HTML5 webcam measurement</title>
+<meta name="description" content="HTML5 measement Histogram " />
+
+<style type="text/css">
+
+</style>
+</head> 
+  
+<body> 
+
+
+<h1>MeasurementScreen - Histogram</h1>
+<div id="container">
+
+ 
+    <div class="select" style="display:none;">
+        <label for="audioSource">Audio input source: </label><select id="audioSource" ></select>
+    </div>
+
+    <div class="select" style="display:none;">
+        <label for="audioOutput">Audio output destination: </label><select id="audioOutput"></select>
+    </div>
+
+    <div class="select">
+ 	<input type="button" id="buttonStart" value="Start" onclick="start()" />
+	<input type="button" id="buttonStop" value="Stop" onclick="stop()" disabled="" /> 
+	
+	 	<label> Input :  </label>
+	<select id="all_size_id" onchange="Input(value);">
+      <option value ="1">Webcam</option>
+      <option value ="0">Screen</option>  
+  
+    </select>
+	<label for="videoSource">Webcam source: </label><select id="videoSource"></select>
+	
+	
+		<span> Resolution: </span>
+	<select id="XResolution_id" onchange="XResolution=parseInt(value);">
+	  <option value = 1280 >1280</option>
+      <option value = 1024 >1024</option>
+	  <option value = 1920 >1920</option> 
+	  <option value = 800 >800</option>
+      <option value = 640 >640</option>
+	  <option value = 340 >340</option> 
+	 </select>
+	<span> AspectRatio: </span>
+	<select id="XResolutionXY_id" onchange="XResolutionXY =parseFloat(value);">
+	  <option value = 1.7777777777777777 >16:9</option>
+      <option value = 1.3333333333333333 >4:3</option>
+
+	 </select>
+	 	<span> FrameRate </span>
+	<select id="XResolutionXY_id" onchange="XFrameRate =parseFloat(value);">
+      <option value = 25 >25</option>
+	  <option value = 24 >24</option>
+	  <option value = 30 >30</option>
+      <option value = 48 >48</option>
+	  <option value = 50 >50</option>
+      <option value = 60 >60</option>
+	 </select>
+ 
+    </div>
+
+   
+</div>
+
+  
+
+<p>
+
+
+</p>
+ <video id="video" playsinline autoplay src="" onmouseover="this.style.cursor = 'pointer'"></video>
+
+
+
+
+
+  
+<p>
+	<canvas id="canvas"  />
+</p>
+<p>
+	<label> Position Y1:  </label>
+	<input type="text" size="3" id="SYposition" value="410" />
+		<label> Position X1:  </label>
+	<input type="text" size="3" id="SXposition" value="780" />
+		<label> Length Y2:  </label>
+	<input type="text" size="3" id="SYlength" value="150" />
+		<label> Length X2:  </label>
+	<input type="text" size="3" id="SXlength" value="150" />  
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+</p> 
+<p>  
+	<canvas id="canvas2" />
+</p>
+<p>
+
+	 
+
+	 <label> Channel:  </label>
+	 	<select id="mChannel" onchange="">
+	  <option value = 4 >Y</option>
+	  <option value = 1 >R</option>
+      <option value = 2 >G</option>
+	  <option value = 3 >B</option> 
+
+
+	 </select>
+		<label> Low(B):  </label> 
+	<input type="text" size="3" id="mLow" value="16" />
+		<label> High(R):  </label>
+	<input type="text" size="3" id="mHigh" value="235" /> 
+	
+</p> 
+<pre id="preLog">Access to camera</pre>
+<script src="js/videoInput.js"></script>  
+<script>
+
+// ---------------------------Var: local------------------
+var canvas = document.getElementById('canvas');
+var canvas2 = document.getElementById('canvas2');
+var c1_ctx ;//= canvas.getContext("2d");
+var c2_ctx ;//= canvas2.getContext("2d");
+var data, idata;
+var iImageIn, imgArrayIn,iImageOut, imgArrayOut; 
+ 
+var zeile , column, SYposition, SXposition,SYlength, SXlength, zeile_anfang, zeile_ende ;
+var array_elemente=720;
+
+var histogram_y , PicY;
+
+
+
+
+var canvas1_hight = 200;
+var canvas2_distance =  0;
+var canvas2_hight = 255;
+var canvas2_text = 50;
+var grid_Pixel=["Pixel","255", "235", "128", " 16", "  0", "255", "240", "128", " 16", "  0", "255", "240", "128", " 16", "  0"];
+var grid_Volt=["mVolt","+761", "+700", "+350", "  +0", " -48", "+394", "+350", "  0", "-350", "-397",  "+394", "+350", "  0", "-350", "-397"];
+var grid_Percent=["Percent %","100", " 93", " 50", "  7", "  0", "+100", " 95", "50", "  7", "  0", "+100", " 95", "50", "  7", "  0"];
+var grid_HeaderRGB=["Red - R","Green - G", "Blue - B"];
+var grid_HeaderYUV=["Luminanz- Y"," Chroma - U (CB/B-Y)", "Chroma - V (CR/R-Y)"];
+
+var colorWhite = "rgb(255,255,255)";
+var colorRed =  "rgb(255,0,0)";
+
+
+
+var MaxSumSoebel =0;
+var MaxGreenSoebel =0; 
+var MaxColSoebel =0;
+var iGreenSoebel =0;
+var iColSoebel =0;
+var FilterType =0;  
+
+var globalMaxValue = 0;
+var globalMaxIndex = 0;
+const EichungsHistogramm = [
+	255,255,255,255,
+	0,0,0,255,
+	0,0,0,255,
+	125,125,125,255,
+	125,130,135,255
+]
+
+
+
+var array_elemente=255;
+
+var histogram_y ;
+var histogram_u ;
+var histogram_v;
+
+var histogram_r;
+var histogram_g;
+var histogram_b;
+
+var max_histogram_y;
+var max_histogram_u;
+var max_histogram_v ;
+var max_histogram_r ;
+var max_histogram_g ;
+var max_histogram_b ;
+var aktR, aktG,aktB,aktY,aktU,aktV;
+
+const ctxVideoOptsChroma = {
+	textOffset : 35,  
+	maxAmplitude : 200,
+	zeroPoint : 215,
+	step: 2.75
+}
+
+
+// ------------------------ measurement------------------------
+function measurment() {
+intervalId = setInterval(processingVideoMeasure, 1000/frameRate);
+}
+
+function writeCanvas(iInput) { 
+	c1_ctx.putImageData(iInput,canvas2_distance, canvas2_distance); // Draw the ImageData object.
+}
+
+function readCanvas(iVideoPlayer, ih) {  // Player; n. Line to read
+ 	canvas.getContext('2d').drawImage(iVideoPlayer, SXposition, SYposition, SXlength, SYlength, canvas2_distance, canvas2_distance,SXlength,SYlength);	
+    idata = canvas.getContext('2d').getImageData(canvas2_distance, canvas2_distance,canvas.width-canvas2_distance-canvas2_distance,canvas.height-canvas2_distance-canvas2_distance);
+    data = idata.data;
+	return data;
+}
+function GRAYtoRGB(iOutput, iInput) {  
+	let r,g,b;
+	for(var i = 0; i < iInput.length; i+=1) {
+	    r = iInput[i];
+	    g = iInput[i];
+	    b = iInput[i];
+		iOutput[i*4+0] = r;
+		iOutput[i*4+1] = g;
+		iOutput[i*4+2] = b;
+		iOutput[i*4+3] = 255;
+	}
+}
+function RGBtoGRAY(iOutput, iInput) { 
+	let r,g,b ;
+	for(var i = 0; i < iOutput.length; i+=1) {
+		r = iInput[i*4+0];
+		g = iInput[i*4+1];
+		b = iInput[i*4+2];
+	let	y = Math.sqrt(0.241*(r*r)+0.691*(g*g)+0.068*(b*b));         //Helligkeitsberechnung --> sqrt( .241 R2 + .691 G2 + .068 B2 )
+		iOutput[i]   = runde(y,0);
+	}
+}
+function clearCanvas(iCanvas) {
+		iCanvas.getContext("2d").clearRect(0, 0, iCanvas.width, iCanvas.height);
+		
+}
+ function clearMeasur() {
+		MaxSumSoebel =0;
+	  
+		MaxGreenSoebel =0; 
+        MaxColSoebel =0; 
+        MaxColSoebel =0;
+		
+}
+
+function runde(x, n) {  
+  if (n < 0 || n > 14) return false;
+  var e = Math.pow(10, n);
+  var k = (Math.round(x * e) / e).toString();
+  if (n == 0 ) return k;
+  if (k.indexOf('.') == -1) k += '.';
+  k += e.toString().substring(1);
+  return k.substring(0, k.indexOf('.') + n+1);
+}
+//-------------------------------
+   
+
+function processingVideoMeasure() {  // Capture Device
+let lineSum;
+    let minR,minG,minB, maxR,maxG,maxB;
+	let iCanvas =canvas2;	
+ 	//-------------------
+	var Channel = parseInt(document.getElementById("mChannel").value);
+	var mLow = parseFloat(document.getElementById("mLow").value);
+	var mHigh = parseFloat(document.getElementById("mHigh").value);	
+
+	// Process chain begin    ---// Loop through the pixels, turning them in-RGB-Out
+    data = readCanvas(video); 
+	array_elemente=data.length/4;
+    PicY = new Float32Array(array_elemente);  
+	PicY = createHistogram(data, true,Channel,mLow,mHigh);
+	visuellHistogram (data, data, Channel,mLow,mHigh);   	
+
+	clearCanvas(iCanvas);
+
+
+    fillCustomCanvasVideoHisto(PicY, c2_ctx, ctxVideoOptsChroma,mLow,mHigh);
+	writeCanvas(idata);  
+		// Process chain end
+}
+
+function visuellHistogram(iOutput, iInput, iChannel,iLow,iHigh) {
+  let r,g,b,gray;
+  
+	for(var i = 0; i < iInput.length; i+=4) {
+		r = iInput[i+0];
+		g = iInput[i+1];
+		b = iInput[i+2];
+		
+if (iChannel==4){
+	gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);   	
+	if (gray<=iLow  ) {	
+			iOutput[i+1] = 255; 
+			iOutput[i+0] = 255;  
+			iOutput[i+2] = 255;
+			iOutput[i+3] = 255;
+			} 	else if ( gray<=iHigh ) {
+			iOutput[i+0] = r;  
+			iOutput[i+1] = g; 
+			iOutput[i+2] = b;
+			iOutput[i+3] = 255;
+			}	else {
+			iOutput[i+0] = 0;  
+			iOutput[i+1] = 0; 
+			iOutput[i+2] = 0;
+			iOutput[i+3] = 255;
+	       }
+} else {
+
+	if (r<=iLow || g<=iLow || b<=iLow ) {	
+			iOutput[i+1] = 255; 
+			iOutput[i+0] = 255;  
+			iOutput[i+2] = 255;
+			iOutput[i+3] = 255;
+			} 	else if ( r<=iHigh || g<=iHigh || b<=iHigh) {
+			iOutput[i+0] = r;  
+			iOutput[i+1] = g; 
+			iOutput[i+2] = b;
+			iOutput[i+3] = 255;
+			}	else {
+			iOutput[i+0] = 0;  
+			iOutput[i+1] = 0; 
+			iOutput[i+2] = 0;
+			iOutput[i+3] = 255;
+	       }
+   }
+ }
+
+}
+
+
+function createHistogram(imgArray, total = false,iChannel,iLow,iHigh) {
+	let gray;
+	let histo = [...Array(256).keys()];
+	for (var i = 0; i < histo.length; i++) {
+		histo[i] = 0;
+	}
+	let maxValue = 0;
+
+	for (var i = 0; i < imgArray.length; i+=4) {
+		let r = imgArray[i];
+		let g = imgArray[i+1];
+		let b = imgArray[i+2];
+		switch(iChannel){ 
+			case 1: 
+				  gray = Math.floor( r );
+				break;
+			case 2: 
+				  gray = Math.floor( g );
+				break;
+			case 3: 
+				  gray = Math.floor( b);
+				break;			
+				default: 
+				gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);   	
+        } 
+		histo[gray] += 1;
+		if (histo[gray] > maxValue) {
+			maxValue = parseInt(histo[gray]);
+			if (gray!=0)globalMaxIndex = gray;  
+		}
+	}
+
+	globalMaxValue = maxValue;
+
+	return total ? histo.map(x => x / maxValue) : histo;
+}
+
+function fillCustomCanvasVideoHisto(iArray, iCTX, options,iLow,iHigh) {  
+	let ctx2 = iCTX;
+		  let iCanvas =canvas2;
+		  ctx2.textBaseline = "middle";
+	ctx2.font = "15px Courier-New";
+	ctx2.fillStyle="#000000";
+	ctx2.fillText("Max HistoValue: "+globalMaxValue+", HistoIndex:"+globalMaxIndex, 0, options.zeroPoint - options.maxAmplitude);
+	ctx2.fillText(0, 0, options.zeroPoint);
+	ctx2.fillText("y: Korrelation, x: Value (0 bis 255)", options.textOffset, options.zeroPoint + 35);
+
+	ctx2.fillStyle="#cccccc";
+	ctx2.fillRect(
+		options.textOffset,
+		options.zeroPoint - options.maxAmplitude+10,
+
+		iCanvas.width, 
+		options.zeroPoint  
+	);
+
+
+	for (var i = 0; i < iArray.length; i++) {
+	if (i<=iLow|| i>=iHigh) 	ctx2.fillStyle="#FF0000";
+	else 	ctx2.fillStyle="#00cc00";
+		ctx2.fillRect(
+			i*options.step + options.textOffset,
+			options.zeroPoint+10,
+			options.step,
+			- iArray[i] * options.maxAmplitude
+		);
+
+		if (i % 16 == 0) {
+			ctx2.fillText(i, i*options.step + options.textOffset, options.zeroPoint + 10+10);
+		}
+	}
+}
+ 
+
+//---------------------------------------------------------------------------
+
+
+</script>  
+</body>
+</html>

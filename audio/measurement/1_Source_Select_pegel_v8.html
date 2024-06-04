@@ -1,0 +1,133 @@
+<!DOCTYPE html> 
+
+<!--
+ *  Copyright (c) 2021 j.Lohr
+-->
+<html>
+<head>
+   
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="author" content="Jürgen Lohr">
+      <title>Measurement Audio</title>
+
+
+    <style>
+  div.select {
+    margin: 0 0 1em 0;
+
+  }
+  label {
+    color: black;
+  }
+  
+  #audioSource, #audioOutput, #videoSource {
+  	   width:200px 
+  }
+  
+ #meterL, #meterR {
+  position:relative;
+  width:100px;
+  height:10px;
+ }
+  #OverL, #OverR, span,label    {
+   font-family:Verdana,sans-serif;
+   font-weight:bold;
+   background-color:#ffffff;
+   font-size: 60%;
+   position:absolut;
+ }
+ form {
+	box-shadow: 0 0 3px rgba(0, 0, 0, .7), inset 0 3px 3px rgba(0, 0, 0, .5);
+	width: 900px; 
+  }
+
+ div {
+    padding:5px;
+    margin: 0px;
+    font-family:Verdana,sans-serif;
+    font-size: 12px
+  }
+
+ 
+    </style>
+  
+</head> 
+  
+<body>
+
+
+<h1>MeasurementAudio - Pegel</h1> 
+	<FORM NAME="form1" id="controls" METHOD="POST">
+ 
+    <div class="select">
+		<input type="button" id="buttonStart" value="Start" onclick="startAudio()" />
+		<input type="button" id="buttonStop" value="Stop" onclick="stopAudio()" disabled=""  />
+
+        <label for="audioSource">Source: </label><select id="audioSource"></select>
+
+        <label for="audioOutput">Destination: </label><select id="audioOutput"></select>
+		   <input type="button" id="Mute" value="Speaker: off" onclick="mute()" style="background-color: #cc0000">    
+		   	<span > OutputSignal: </span>
+	<select id="outputType" onchange="outBuffer(value);">
+      <option value = 0 >Life-Event</option>
+      <option value = 1 >Snapshot-Buffer</option>
+    </select>
+    </div>
+
+    <div class="select" style="display:none;">
+        <label for="videoSource">Video source: </label><select id="videoSource"></select>
+    </div>
+
+
+<div >
+	<p>
+		<span > Ch1: </span>
+		<meter id="meterL" value="-96.00"></meter>   <span id="OverL" onclick="overClear()">-96.00</span>
+		<span > dBFS </span>
+		</p>
+	<p>
+		<span > Ch2: </span>
+		<meter id="meterR" value="-96.00"></meter> <span id="OverR" onclick="overClear()">-96.00</span>
+		<span > dBFS </span>
+		</p>
+  </div>
+  </FORM> 
+
+  <video id="video" playsinline autoplay style="display:none;"></video>
+<script src="js/mediaInputOutput.js"></script>  
+<script src="js/mediaMeasurement.js"></script>  
+
+
+		<pre id="preLog"></pre>  
+<script >
+
+
+//--------------------Measure var--------------
+
+
+
+ 
+
+//----------------------measurment funkt----------------------------------------------
+function initAudioMeasurement() {
+
+}
+function clearAudioMeasurement() {
+	 overClear();
+	 meterClear();
+}
+ 
+
+//---------------------------measurement----------------------
+ function processingAudioMeasurement(event) {  
+ // console.log(event); 
+ //   readWebAudio(audArrayIn,event);
+  //    setAmplitudeObjekt(audArray2, audArrayIn, 0.90)
+    measurementPegel(event);    
+  //  writeWebAudioObjekt(event.outputBuffer,audArrayIn);
+}
+</script>
+
+</body>
+</html>

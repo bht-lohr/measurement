@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+<head>
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="author" content="Jürgen Lohr">
+      <title>Media: Select Micro</title>
+
+  
+	<style>
+  div.select {
+    margin: 0 0 1em 0;
+  }
+  label {
+    color: black;
+  }
+  
+  #meterL, #meterR {
+  position:relative;
+  width:100px;
+  height:10px;
+ }
+ 
+  #OverL, #OverR, span {
+   font-family:Verdana,sans-serif;
+   font-weight:bold;
+   background-color:#ffffff;
+   font-size: 60%;
+   position:absolut;
+ }
+ 
+ form {
+	box-shadow: 0 0 3px rgba(0, 0, 0, .7), inset 0 3px 3px rgba(0, 0, 0, .5);
+	width: 900px; 
+  }
+
+ div {
+    padding:5px;
+    margin: 0px;
+    font-family:Verdana,sans-serif;
+    font-size: 12px
+  }
+  </style>
+
+</head>
+<body>
+<div id='container'>
+
+<h1>HTML5 Media (Audio-In) Select </h1>
+<h4>Chrome https</h4>
+	<FORM NAME="form1" id="controls" METHOD="POST">
+  <div class='select'>
+    <label for='audioSource'>Audio Source: </label><select id='audioSource'></select>
+    <label>Audio Destination: </label>
+    <select id="audio-output"></select>
+    <input type="button" name="Mute1" value="Mute" onclick="mute(1)">
+	</div>
+
+
+	<p>
+		<input type="button" id="buttonStart" value="Start" onclick="start()" />
+		<input type="button" id="buttonStop" value="Stop" onclick="stop()" disabled=""  />
+
+	</p>
+		    <div>
+	<p>
+		<span > Ch1: </span>
+		<meter id="meterL" value="-96.00"></meter>   <span id="OverL" onclick="overClear()">-96.00</span>
+		<span > dBFS </span>
+		</p>
+	<p>
+		<span > Ch2: </span>
+		<meter id="meterR" value="-96.00"></meter> <span id="OverR" onclick="overClear()">-96.00</span>
+		<span > dBFS </span>
+		</p>
+	</div>
+
+	</FORM>
+
+</div>
+<script>
+
+let isFirtsClick = true
+
+var audioInputSelect = document.querySelector("select#audioSource");
+var audioOutputSelect = document.querySelector('select#audio-output');
+var selectors = [audioInputSelect, audioOutputSelect];   //, videoSelect
+
+var sourceInfos;
+
+
+var audioTracks;
+var audioStream = null;
+var audioContext ;
+	var mediaDestination ;
+var audio;  
+var realAudioInput = null;
+var preLog ;
+var bufferlength=1024/2;
+var channelOutL ;
+var channelOutR ;
+var masterGain;
+
+				var meterL = document.getElementById("meterL"); 
+				var meterR = document.getElementById("meterR"); 
+				var max_amplitudeL = 0.00;
+				var max_amplitudeR = 0.00;
+				var l_amplitude = 0.00001;
+				var r_amplitude = 0.00001;
+				var max_overL = -96.00;
+				var max_overR = -96.00;
+				 max_overL = max_overL.toFixed(2);
+				 max_overR = max_overR.toFixed(2);
+		  meterL.min=-96;
+		  meterL.max=0;
+		  meterL.low=-23;
+		  meterL.high=-9;
+		  meterL.optimum=-90;
+		  
+		  meterR.min = meterL.min;
+		  meterR.max = meterL.max;
+		  meterR.low = meterL.low;
+		  meterR.high = meterL.high;
+		  meterR.optimum = meterL.optimum;
+
+
+var muteStatus  = true;
+    var jsNode;
+	//------------------
+function initAudioPlayer() {	 
+audio = new Audio();    
+  audio.controls = true;  
+    audio.id = "Audio"; 
+  audio.preload = true;   
+  audio.addEventListener('canplaythrough', onAudioReady);
+
+    audioContext = new AudioContext(); 
+ 		  mediaDestination = audioContext.createMediaStreamDestination();
+    
+  	 
+     masterGain=audioContext.createGain();
+	 masterGain.gain.value =0;
+
+
+}
+function onAudioReady() {
+     audio.play();
+  }
+// --------------------------------- Source Destination Define ----------------
+	
+navigator.getUserMedia = navigator.getUserMedia ||
+  navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+
+
+
+ function gotDevices(deviceInfos) {
+   // Handles being called several times to update labels. Preserve values.
+  var values = selectors.map(function(select) {
+    return select.value;
+  });
+  selectors.forEach(function(select) {
+    while (select.firstChild) {
+      select.removeChild(select.firstChild);
+    }  
+  });
+  
+  for (var i = 0; i !== deviceInfos.length; ++i) {
+    var deviceInfo = deviceInfos[i];
+    var option = document.createElement('option');
+    option.value = deviceInfo.deviceId;
+    if (deviceInfo.kind === 'audioinput') {
+      console.log('Found audio input device: ', deviceInfo);
+      option.text = deviceInfo.label || 'microphone '  +    
+        (audioInputSelect.length + 1);
+      audioInputSelect.appendChild(option);
+	  
+    } else if (deviceInfo.kind === 'audiooutput') {
+      console.log('Found audio output device: ', deviceInfo);
+      option.text = deviceInfo.label || 'speaker ' +
+        (audioOutputSelect.length + 1);
+      audioOutputSelect.appendChild(option);	  
+    } else {
+      console.log('Found device: ', deviceInfo);
+    }
+  }
+    selectors.forEach(function(select, selectorIndex) {
+    if (Array.prototype.slice.call(select.childNodes).some(function(n) {
+      return n.value === values[selectorIndex];
+    })) {
+      select.value = values[selectorIndex];
+    }
+  });
+}  
+   
+navigator.mediaDevices.enumerateDevices()
+.then(gotDevices)
+.catch(errorCallback);
+
+// Attach audio output device to video element using device/sink ID.
+function attachSinkId(element, sinkId) {
+  if (typeof element.sinkId !== 'undefined') {
+    // NB: media element must be playing to avoid DOMException.
+    element.setSinkId(sinkId)
+    .then(function() {
+      console.log('Success, audio output device attached: ' + sinkId);
+    })
+    .catch(function(error) {
+      var errorMessage = error;
+      if (error.name === 'SecurityError') {
+        errorMessage = 'You need to use HTTPS for selecting audio output ' +
+            'device: ' + error;
+      }
+      console.error(errorMessage);
+      // Jump back to first output device in the list as it's the default.
+      audioOutputSelect.selectedIndex = 0;
+    });
+  } else {
+    console.warn('Browser does not support output device selection.');
+  }
+}
+
+function changeAudioDestination() {
+  var audioDestination = audioOutputSelect.value;
+  // Changing destination for one source changes destination for all.
+
+	    attachSinkId(audio, audioDestination);
+
+}  
+
+
+audioInputSelect.onchange = start;
+audioOutputSelect.onchange = changeAudioDestination;
+
+// -----------------------------
+async function gotStreamAudio(stream) {
+ if (isFirtsClick) {   
+ initAudioPlayer(); 
+   realAudioInput = audioContext.createMediaStreamSource(stream);
+
+	  await audioContext.audioWorklet.addModule('js/micro-processor.js')
+ 	
+	    jsNode = new AudioWorkletNode(audioContext, 'audioProcess')
+        jsNode.port.onmessage  = event => {
+            let _volumeR = 0
+			let _volumeL = 0
+            let _sensibility = 5 
+            if (event.data.volumeM) 
+                _volumeR = event.data.volumeM[1];  
+				_volumeL = event.data.volumeM[0];  
+            ledsM(_volumeL ,  _volumeR )    
+	
+        }
+
+    realAudioInput.connect(jsNode);  
+    jsNode.connect(masterGain);  
+    masterGain.connect(mediaDestination);
+
+     
+  window.stream = stream;   // make variable available to browser console
+  audio.srcObject = (mediaDestination.stream);
+	isFirtsClick = false
+ //  console.log(stream);  
+    }
+     audioTracks = stream.getAudioTracks();
+
+  stream.onended = function() {
+    console.log('Stream ended');  
+  }; 
+   
+}  
+
+   
+
+function errorCallback(error){
+  console.log("navigator.getUserMedia error: ", error);
+}
+//-----------------
+function start(){
+
+  var audioSource = audioInputSelect.value;
+  var audioDevice = audioOutputSelect.value;
+  var constraints2 = {
+    audio: { 
+       optional: [{sourceId: audioSource}] 	 
+    }
+};
+  var constraints1 = {
+       audio: {
+      mandatory:{ sourceId: audioSource, echoCancellation: false, googAutoGainControl: false, googNoiseSuppression: false, googHighpassFilter: false,googAutoGainControl2: false}
+    }
+	};
+ const constraints = {
+     audio: {deviceId: audioSource ? {exact: audioSource} : undefined, echoCancellation: false, googAutoGainControl: false, googNoiseSuppression: false, googHighpassFilter: false,googAutoGainControl2: false},
+ //    video: {deviceId: videoSource ? {exact: videoSource} : undefined}
+  };  
+   
+  		max_amplitudeL = 0;     
+		max_amplitudeR = 0;
+	
+	var myButton = document.getElementById('buttonStart');
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('buttonStop');
+	if (myButton) myButton.disabled = false;
+
+
+
+//   --------------------------------
+
+navigator.mediaDevices.getUserMedia(constraints)
+.then(gotStreamAudio)
+.catch(errorCallback);  
+} 
+
+
+
+function errorCallback(error) {
+  if (error.name === 'ConstraintNotSatisfiedError') {
+    errorMsg('The resolution ' + constraints.video.width.exact + 'x' +
+        constraints.video.width.exact + ' px is not supported by your device.');
+  } else if (error.name === 'PermissionDeniedError') {
+    errorMsg('Permissions have not been granted to use your camera and ' +
+      'microphone, you need to allow the page access to your devices in ' +
+      'order for the demo to work.');
+  }
+  errorMsg('getUserMedia error: ' + error.name, error);
+}
+  
+
+function errorMsg(msg, error) {
+  if (typeof error !== 'undefined') {
+    console.log(error);
+  }
+}
+//------------------------------
+
+
+
+
+function stop() {
+	var myButton = document.getElementById('buttonStop');
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('buttonSnap');
+	if (myButton) myButton.disabled = true;
+	myButton = document.getElementById('visual');
+	if (myButton) myButton.disabled = true;
+
+    if (!!window.stream) {
+	        audioContext.resume();   
+
+	 overClear();
+	 meterClear();
+    }
+
+  if (window.stream) {
+    window.stream.getTracks().forEach(function(track) {
+   track.stop();
+    });
+	    audioContext.suspend()
+	isFirtsClick=true
+  }  
+
+	var	myButton = document.getElementById('buttonStart');
+	if (myButton) myButton.disabled = false;
+}
+ 
+ function mute(x){
+  if (muteStatus != true) {
+     masterGain.gain.value  =0;
+	 muteStatus = true;
+	 }
+  else  {
+    masterGain.gain.value =1; 
+	muteStatus = false;
+	}
+}
+
+   // Pegel berechnung dbFS
+function  pegel(wert) {	 
+	 return  Math.pow(10, wert /20  ); // 0.5 
+}	
+
+function  db(wert) {	 
+	 return 20 * Math.log(wert+0.000001) / Math.log(10); // -6dbFS
+}	
+  
+function  overClear() {	 
+	max_overL = -96.00;
+	max_overR = -96.00;
+	OverL.innerHTML = max_overL.toFixed(2);
+	OverR.innerHTML = max_overR.toFixed(2);
+//	setInterval(overClear, 1000);
+}  
+function  meterClear() {	 
+	max_amplitudeL = -96.00;
+	max_amplitudeR = -96.00;
+		meterL.value = (max_amplitudeL).toFixed(2);
+		meterR.value = (max_amplitudeR).toFixed(2);
+}
+
+function ledsM(iMax_amplitudeL,iMax_amplitudeR)  {        
+		meterL.value = db(iMax_amplitudeL).toFixed(2);
+		meterR.value = db(iMax_amplitudeR).toFixed(2);
+ 
+    max_overL =  Math.max(max_overL, meterL.value);
+    max_overR =  Math.max(max_overR, meterR.value);
+	OverL.innerHTML = max_overL;
+	OverR.innerHTML = max_overR;  
+} 
+</script>
+</body>
+</html>

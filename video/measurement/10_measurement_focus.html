@@ -1,0 +1,889 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-GB" lang="en-GB">
+ 
+<head> 
+<meta charset="UTF-8" />
+<title>HTML5 webcam measurement</title>
+<meta name="description" content="HTML5 measement Histogram " />
+
+<style type="text/css">
+
+</style>
+</head> 
+  
+<body> 
+
+
+<h1>MeasurementScreen - Fokus</h1>
+<div id="container">
+
+ 
+    <div class="select" style="display:none;">
+        <label for="audioSource">Audio input source: </label><select id="audioSource" ></select>
+    </div>
+
+    <div class="select" style="display:none;">
+        <label for="audioOutput">Audio output destination: </label><select id="audioOutput"></select>
+    </div>
+
+    <div class="select">
+ 	<input type="button" id="buttonStart" value="Start" onclick="start()" />
+	<input type="button" id="buttonStop" value="Stop" onclick="stop()" disabled="" /> 
+	
+	 	<label> Input :  </label>
+	<select id="all_size_id" onchange="Input(value);">
+      <option value ="1">Webcam</option>
+      <option value ="0">Screen</option>  
+  
+    </select>
+	<label for="videoSource">Webcam source: </label><select id="videoSource"></select>
+	
+	
+		<span> Resolution: </span>
+	<select id="XResolution_id" onchange="XResolution=parseInt(value);">
+	  <option value = 1280 >1280</option>
+      <option value = 1024 >1024</option>
+	  <option value = 1920 >1920</option> 
+	  <option value = 800 >800</option>
+      <option value = 640 >640</option>
+	  <option value = 340 >340</option> 
+	 </select>
+	<span> AspectRatio: </span>
+	<select id="XResolutionXY_id" onchange="XResolutionXY =parseFloat(value);">
+	  <option value = 1.7777777777777777 >16:9</option>
+      <option value = 1.3333333333333333 >4:3</option>
+
+	 </select>
+	 	<span> FrameRate </span>
+	<select id="XResolutionXY_id" onchange="XFrameRate =parseFloat(value);">
+      <option value = 25 >25</option>
+	  <option value = 24 >24</option>
+	  <option value = 30 >30</option>
+      <option value = 48 >48</option>
+	  <option value = 50 >50</option>
+      <option value = 60 >60</option>
+	 </select>
+ 
+    </div>
+
+   
+</div>
+
+  
+
+<p>
+
+
+</p>
+ <video id="video" playsinline autoplay src="" onmouseover="this.style.cursor = 'pointer'"></video>
+
+
+
+<p>
+	<canvas id="canvas" />
+</p>
+
+<p>
+	<label> Position Y1:  </label>
+	<input type="text" size="3" id="SYposition" value="410" />
+		<label> Position X1:  </label>
+	<input type="text" size="3" id="SXposition" value="780" />
+		<label> Length Y2:  </label>
+	<input type="text" size="3" id="SYlength" value="150" />
+		<label> Length X2:  </label>
+	<input type="text" size="3" id="SXlength" value="150" />
+
+</p>
+<p>
+	<canvas id="canvas2" />
+</p>
+<p>
+	<input type="button" id="ScalaMAX" value="ScalaMAX" onclick="ScalaMAX()"  />
+			<span> Type: </span>
+	<select id="FilterType" onchange="changeFilter(value);">
+	  <option value = 0 >Sobel</option>
+      <option value = 1 >Laplace HV</option>
+	  <option value = 2 >Laplace HVD</option> 
+	  <option value = 3 >Sobel Diag</option> 
+	 </select>
+	 
+	 <label> Threshold:  </label>
+	<input type="text" size="3" id="MThreshold" value="100" />
+		<label> Red:  </label> 
+	<input type="text" size="3" id="MRed" value="50" />
+		<label> Orange:  </label>
+	<input type="text" size="3" id="MOrange" value="50" /> 
+		<label> Green:  </label>
+	<input type="text" size="3" id="MGreen" value="50" />
+</p>
+
+<pre id="preLog">Access to camera</pre>
+<script src="js/videoInput.js"></script>  
+<script>
+
+// ---------------------------Var: local------------------
+var canvas = document.getElementById('canvas');
+var canvas2 = document.getElementById('canvas2');
+var c1_ctx ;//= canvas.getContext("2d");
+var c2_ctx ;//= canvas2.getContext("2d");
+var data, idata;
+var iImageIn, imgArrayIn,iImageOut, imgArrayOut; 
+ 
+var zeile , column, SYposition, SXposition,SYlength, SXlength, zeile_anfang, zeile_ende ;
+var array_elemente=720;
+
+var histogram_y , PicY;
+
+
+
+
+var canvas1_hight = 200;
+var canvas2_distance =  0;
+var canvas2_hight = 255;
+var canvas2_text = 50;
+var grid_Pixel=["Pixel","255", "235", "128", " 16", "  0", "255", "240", "128", " 16", "  0", "255", "240", "128", " 16", "  0"];
+var grid_Volt=["mVolt","+761", "+700", "+350", "  +0", " -48", "+394", "+350", "  0", "-350", "-397",  "+394", "+350", "  0", "-350", "-397"];
+var grid_Percent=["Percent %","100", " 93", " 50", "  7", "  0", "+100", " 95", "50", "  7", "  0", "+100", " 95", "50", "  7", "  0"];
+var grid_HeaderRGB=["Red - R","Green - G", "Blue - B"];
+var grid_HeaderYUV=["Luminanz- Y"," Chroma - U (CB/B-Y)", "Chroma - V (CR/R-Y)"];
+
+var colorWhite = "rgb(255,255,255)";
+var colorRed =  "rgb(255,0,0)";
+
+
+
+
+
+var SoebelIndex=0
+var MaxSumSoebel =0;
+var MaxGreenSoebel =0; 
+var MaxColSoebel =0;
+var iGreenSoebel =0;
+var iColSoebel =0;
+var FilterType =0;  
+
+
+
+
+
+
+var aktR, aktG,aktB,aktY,aktU,aktV;
+
+
+const ctxVideoOptsChroma = {
+	textOffset : 35,  
+	maxAmplitude : 200,
+	zeroPoint : 215,
+	step: 2.75
+}
+// ------------------------ measurement------------------------
+function measurment() {
+intervalId = setInterval(processingVideoMeasure, 1000/frameRate);
+}
+
+function writeCanvas(iInput) { 
+	c1_ctx.putImageData(iInput,canvas2_distance, canvas2_distance); // Draw the ImageData object.
+}
+
+function readCanvas(iVideoPlayer, ih) {  // Player; n. Line to read
+ 	canvas.getContext('2d').drawImage(iVideoPlayer, SXposition, SYposition, SXlength, SYlength, canvas2_distance, canvas2_distance,SXlength,SYlength);	
+    idata = canvas.getContext('2d').getImageData(canvas2_distance, canvas2_distance,canvas.width-canvas2_distance-canvas2_distance,canvas.height-canvas2_distance-canvas2_distance);
+    data = idata.data;
+	return data;
+}
+function GRAYtoRGB(iOutput, iInput) {  
+	let r,g,b;
+	for(var i = 0; i < iInput.length; i+=1) {
+	    r = iInput[i];
+	    g = iInput[i];
+	    b = iInput[i];
+		iOutput[i*4+0] = r;
+		iOutput[i*4+1] = g;
+		iOutput[i*4+2] = b;
+		iOutput[i*4+3] = 255;
+	}
+}
+function RGBtoGRAY(iOutput, iInput) { 
+	let r,g,b ;
+	for(var i = 0; i < iOutput.length; i+=1) {
+		r = iInput[i*4+0];
+		g = iInput[i*4+1];
+		b = iInput[i*4+2];
+	let	y = Math.sqrt(0.241*(r*r)+0.691*(g*g)+0.068*(b*b));         //Helligkeitsberechnung --> sqrt( .241 R2 + .691 G2 + .068 B2 )
+		iOutput[i]   = runde(y,0);
+	}
+}
+function clearCanvas(iCanvas) {
+		iCanvas.getContext("2d").clearRect(0, 0, iCanvas.width, iCanvas.height);
+		
+}
+ function clearMeasur() {
+		SoebelIndex =0; 
+		
+}
+
+function runde(x, n) {  
+  if (n < 0 || n > 14) return false;
+  var e = Math.pow(10, n);
+  var k = (Math.round(x * e) / e).toString();
+  if (n == 0 ) return k;
+  if (k.indexOf('.') == -1) k += '.';
+  k += e.toString().substring(1);
+  return k.substring(0, k.indexOf('.') + n+1);
+}
+//-------------------------------
+
+function ScalaMAX(){
+ ctxVideoOptsSoebel.maxAmplitude = 200/ MaxSumSoebel ;     
+ var iCanvas =canvas2;
+ clearCanvas(iCanvas);
+         MaxSumSoebel =0;
+		SoebelIndex =0;
+		MaxGreenSoebel =0; 
+          MaxColSoebel =0;
+ 
+}
+
+function changeFilter(value){
+ FilterType = value;
+  var iCanvas =canvas2;
+ clearCanvas(iCanvas);
+         MaxSumSoebel =0;
+		SoebelIndex =0;
+		MaxGreenSoebel =0; 
+          MaxColSoebel =0;
+}
+function processingVideoMeasure() {  // Capture Device
+let lineSum;
+   var threshold  = parseFloat(document.getElementById("MThreshold").value);
+   var threRed= parseFloat(document.getElementById("MRed").value);
+   var thresOrange= parseFloat(document.getElementById("MOrange").value);
+   var thresGreen=parseFloat(document.getElementById("MGreen").value);
+    var iLine=10 ;//parseFloat(document.getElementById("In5").value);
+ data = readCanvas(video); 
+     array_elemente=data.length/4;
+    PicY = new Float32Array(array_elemente);
+	
+	// Process chain begin    ---// Loop through the pixels, turning them in-RGB-Out
+	RGBtoGRAY(PicY, data);   
+//	setSoebel_Measurement(data, PicY,threshold,threRed,thresOrange,thresGreen);  
+//	setSoebelBild_Measurement(data , data,PicY,threshold,threRed,thresOrange,thresGreen);  
+//	let lineSum = setSoebelBildWert_Measurement(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+/*
+switch(FilterType) {
+  case 0:
+  	 lineSum = setSoebelBildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+    break;
+  case 1:	
+ 	 lineSum = setLa_VH_BildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+	break;
+  case 2:		
+ 	 lineSum = setLa_VHD_BildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+   break;
+  default:
+    	 lineSum = setSoebelBildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+   break; 
+}	
+  */
+  if (FilterType==0) {
+   	 lineSum = setSoebelBildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+  } else    if (FilterType==1) {
+    lineSum = setLa_VH_BildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+   } else    if (FilterType==2) {
+  lineSum = setLa_VHD_BildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+   } else    if (FilterType==3) {
+     	 lineSum = setSoebelD2BildWert_MeasurementCW(data, data,PicY,threshold,threRed,thresOrange,thresGreen, iLine);  
+  } 
+   
+fillCustomCanvasVideoWert(lineSum, c2_ctx, ctxVideoOptsSoebel);
+// console.log(FilterType);
+//	cutFirstLine(secondLineBridnessSamples, BridnessSamples);	
+//	cutFirstLine(secondLineSoebelSamples, SoebelSamples);	
+//   GRAYtoRGB(data, PicY);
+	// Process chain end
+	writeCanvas(idata);  
+	
+//	LogArray = ["imgArrayIn", "BridnessSamples", "secondLineBridnessSamples","secondLineSoebelSamples", "imgArrayOut"];
+} 
+
+function setSoebel_Measurement(iOutput, iInput, iThreshold,iThreRed,iThresOrange,iThresGreen) { 
+var iPic;
+var cw=canvas.width  ; 
+	var k = -1;
+	var l = -2;
+	var m = 1;
+	var n = 2;
+	            /*   -1     -2    -1
+                      0      0     0        gefaltet "data" + "127"
+                      1     2      1       */
+    for(var i = cw+1; i < iInput.length-(cw-1); i+=1) {
+ 			iPic =  Math.abs // Vertikal
+  					         ( k * iInput[i-cw-1] + l * iInput[i-cw]   + k * iInput[i-cw+1]
+					       +   m * iInput[i+cw-1] + n * iInput[i+cw] + m * iInput[i+cw+1])
+			iPic +=  Math.abs				
+							//Horizontal
+						    ( k * iInput[i-cw-1]    + m * iInput[i-cw+1]
+					        +   l * iInput[i-1]     + n * iInput[i+1]
+					        +   k * iInput[i+cw-1]  + m * iInput[i+cw+1]);  
+			if (iPic <= iThreshold){
+  		    iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;		
+			}	 else if  (iPic <= iThreshold+iThreRed){
+  		    iOutput[i*4+0] =iPic	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;					
+			}  else if  (iPic <= iThreshold+iThreRed+iThresOrange){
+	 		iOutput[i*4+0] =iPic	;
+ 			iOutput[i*4+1] =iPic/2	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;				
+			} else if  (iPic <= iThreshold+iThreRed+iThresOrange+iThresGreen){
+	 		iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =iPic	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;				
+			}		
+						
+		} 		 
+}
+
+function setSoebelBild_Measurement(iOutput, iOrginal, iInput, iThreshold,iThreRed,iThresOrange,iThresGreen) { 
+var iPic;
+var cw=canvas.width  ; 
+	var k = -1;
+	var l = -2;
+	var m = 1;
+	var n = 2;
+	            /*   -1     -2    -1
+                      0      0     0        gefaltet "data" + "127"
+                      1     2      1       */
+    for(var i = cw+1; i < iInput.length-(cw-1); i+=1) {
+ 			iPic =  Math.abs // Vertikal
+  					         ( k * iInput[i-cw-1] + l * iInput[i-cw]   + k * iInput[i-cw+1]
+					       +   m * iInput[i+cw-1] + n * iInput[i+cw] + m * iInput[i+cw+1])
+			iPic +=  Math.abs				
+							//Horizontal
+						    ( k * iInput[i-cw-1]    + m * iInput[i-cw+1]
+					        +   l * iInput[i-1]     + n * iInput[i+1]
+					        +   k * iInput[i+cw-1]  + m * iInput[i+cw+1]);  
+			if (iPic <= iThreshold){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =iOrginal[i*4+2]			;
+			iOutput[i*4+3] =255	;		
+			}	 else if  (iPic <= iThreshold+iThreRed){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;					
+			}  else if  (iPic <= iThreshold+iThreRed+iThresOrange){
+	 		iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]	/2	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;				
+			} else if  (iPic <= iThreshold+iThreRed+iThresOrange+iThresGreen){
+	 		iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;				
+			}		
+						
+		} 		 
+}
+
+const ctxVideoOptsSoebel = {
+	textOffset : 10,
+	maxAmplitude : 0.0001, // 200*200=40.000 -0.0001
+	zeroPoint : 250,
+	step: 1
+}
+  
+function setSoebelBildWert_Measurement(iOutput, iOrginal, iInput, iThreshold,iThreRed,iThresOrange,iThresGreen, iLine) { 
+var iPic;
+var cw=canvas.width  ;   
+var ch=canvas.height  ;   
+var iSum=-1;
+	var k = -1;
+	var l = -2;
+	var m = 1;
+	var n = 2;
+	
+ iColSoebel=0;
+ iGreenSoebel=0; 
+	            /*   -1     -2    -1
+                      0      0     0        gefaltet "data" + "127"
+                      1     2      1       */
+    for(var i = cw+1; i < iInput.length-(cw-1); i+=1) {
+ 			iPic =  Math.abs // Vertikal
+  					         ( k * iInput[i-cw-1] + l * iInput[i-cw]   + k * iInput[i-cw+1]
+					       +   m * iInput[i+cw-1] + n * iInput[i+cw] + m * iInput[i+cw+1])
+			iPic +=  Math.abs				
+							//Horizontal
+						    ( k * iInput[i-cw-1]    + m * iInput[i-cw+1]
+					        +   l * iInput[i-1]     + n * iInput[i+1]
+					        +   k * iInput[i+cw-1]  + m * iInput[i+cw+1]);  
+			if (iPic <= iThreshold){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =iOrginal[i*4+2]			;
+			iOutput[i*4+3] =255	;		
+			}	 else if  (iPic <= iThreshold+iThreRed){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			}  else if  (iPic <= iThreshold+iThreRed+iThresOrange){
+	 		iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =128	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			} else if  (iPic <= iThreshold+iThreRed+iThresOrange+iThresGreen){
+	 		iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;	
+			iGreenSoebel++;
+			iColSoebel++;
+			}		
+			if (i > (0)*cw && i < (ch-2)*cw ){
+				iSum += iPic;
+	 	//	iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 		//	iOutput[i*4+1] =iOrginal[i*4+1]		;
+		//	iOutput[i*4+2] =255	;
+				
+			}
+						
+		} 		   
+			return iSum;
+}
+ 
+function setSoebelBildWert_MeasurementCW(iOutput, iOrginal, iInput, iThreshold,iThreRed,iThresOrange,iThresGreen, iLine) { 
+var iPic=0;
+var cw=canvas.width  ;   
+var ch=canvas.height  ;   
+var iSum=0;
+let k ; 
+let l;
+let m;
+let n;
+let z ;	
+ iColSoebel=0;
+ iGreenSoebel=0; 
+
+    for(var i = cw+1; i < iInput.length-(cw-1); i+=1) {
+	 if (i% cw == 0 || i % cw == cw-1 ){    //
+	 	// 	iOutput[i*4+0] =0 	;
+ 		//	iOutput[i*4+1] =128	;
+		//	iOutput[i*4+2] =128	;
+				
+			} else { 
+			
+
+			// Sobel---------------
+	            /*   -1     -2    -1
+                      0      0     0        
+                      1     2      1       */
+ 	 k = -1;
+	 l = -2;
+	 m = 1;
+	 n = 2;
+       	iPic =  Math.abs // Vertikal
+  					         ( k * iInput[i-cw-1] + l * iInput[i-cw]   + k * iInput[i-cw+1]
+					       +   m * iInput[i+cw-1] + n * iInput[i+cw] + m * iInput[i+cw+1]);
+			iPic +=  Math.abs		//Horizontal		
+						    ( k * iInput[i-cw-1]    + m * iInput[i-cw+1]
+					        +   l * iInput[i-1]     + n * iInput[i+1]
+					        +   k * iInput[i+cw-1]  + m * iInput[i+cw+1]);  
+	
+  
+
+			
+			
+			if (iPic <= iThreshold){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =iOrginal[i*4+2]			;
+			iOutput[i*4+3] =255	;		
+			}	 else if  (iPic <= iThreshold+iThreRed){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			}  else if  (iPic <= iThreshold+iThreRed+iThresOrange){
+	 		iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =128	;
+			iOutput[i*4+2] =0		; 
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			} else if  (iPic <= iThreshold+iThreRed+iThresOrange+iThresGreen){
+	 		iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;	
+			iGreenSoebel++;
+			iColSoebel++; 
+			}		
+			if (i > (0)*cw && i < (ch-2)*cw ){
+				iSum += iPic;
+	 	//	iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 		//	iOutput[i*4+1] =iOrginal[i*4+1]		;
+		//	iOutput[i*4+2] =255	;
+				
+			  }
+						
+		    } 		
+		}
+			// console.log(iSum);
+	return iSum;
+}
+
+function setSoebelD2BildWert_MeasurementCW(iOutput, iOrginal, iInput, iThreshold,iThreRed,iThresOrange,iThresGreen, iLine) { 
+var iPic=0;
+var cw=canvas.width  ;   
+var ch=canvas.height  ;   
+var iSum=0;
+let k ; 
+let l;
+let m;
+let n;
+let z ;	
+ iColSoebel=0;
+ iGreenSoebel=0; 
+/*	var k = -2;  // inverse (breitere Kanten)
+	var l = -1;
+	var m = 2;
+	var n = 1;
+*/	            /*   -2     -1    -2
+                      0      0     0        
+                      2      1      2       */
+					  
+			    /*   -2      0    2
+                     -1      0    1        
+                     -2      0    2       */
+					 
+			    /*   -1     -2    0
+                     -2      0    2        
+                      0      2    1       */
+					  
+			    /*    1       2     0
+                      2       0    -2       
+                     -0      -2    -1       */	
+	 k = -1; 
+	 l = -2;
+	 m = 1;
+	 n = 2;
+	
+    for(var i = cw+1; i < iInput.length-(cw-1); i+=1) {
+	 if (i% cw == 0 || i % cw == cw-1 ){    //
+	 	// 	iOutput[i*4+0] =0 	;
+ 		//	iOutput[i*4+1] =128	;
+		//	iOutput[i*4+2] =128	;
+				
+			} else { 
+			 
+
+	            /*   -1     -2    -1
+                      0      0     0        
+                      1      2      1       */
+					  
+			    /*   -1      0    1
+                     -2      0    2        
+                     -1      0    1       */
+					 
+			    /*   -2     -1    0
+                     -1      0    1        
+                      0      1    2       */
+					  
+			    /*    2       1     0
+                      1       0    -1       
+                     -0      -1    -2       */
+
+
+ 			iPic =  Math.abs // Vertikal
+  					         ( k * iInput[i-cw-1] + l * iInput[i-cw]   + k * iInput[i-cw+1]
+ 
+					       +   m * iInput[i+cw-1] + n * iInput[i+cw] + m * iInput[i+cw+1]);
+			iPic +=  Math.abs		//Horizontal		
+						    ( k * iInput[i-cw-1]    + m * iInput[i-cw+1]
+					     	  +   l * iInput[i-1]     + n * iInput[i+1]
+				        +   k * iInput[i+cw-1]  + m * iInput[i+cw+1]);  
+		iPic +=  Math.abs		//Horizontal		
+						    ( l * iInput[i-cw-1]    + k * iInput[i-cw]
+					     	  +   k * iInput[i-1]     + m * iInput[i+1]
+					        +   m * iInput[i+cw]  + n * iInput[i+cw+1]);  
+							
+			iPic +=  Math.abs		//Horizontal		
+						    ( n * iInput[i-cw-1]    + m * iInput[i-cw]
+					     	  +   m * iInput[i-1]     + k * iInput[i+1]
+					        +   k * iInput[i+cw]  + l * iInput[i+cw+1]);  
+					iPic +=  Math.abs		//Horizontal		
+						    ( l * iInput[i-cw+1]    + k * iInput[i-cw]
+					     	  +   k * iInput[i+1]     + m * iInput[i-1]
+					        +   m * iInput[i+cw]  + n * iInput[i+cw-1]);  
+							
+					iPic +=  Math.abs		//Horizontal		
+						    ( n * iInput[i-cw+1]    + m * iInput[i-cw]
+					     	  +   m * iInput[i+1]     + k * iInput[i-1]
+					        +   k * iInput[i+cw]  + l * iInput[i+cw-1]); 
+
+
+	
+  
+
+			
+			
+			if (iPic <= iThreshold){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =iOrginal[i*4+2]			;
+			iOutput[i*4+3] =255	;		
+			}	 else if  (iPic <= iThreshold+iThreRed){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			}  else if  (iPic <= iThreshold+iThreRed+iThresOrange){
+	 		iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =128	;
+			iOutput[i*4+2] =0		; 
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			} else if  (iPic <= iThreshold+iThreRed+iThresOrange+iThresGreen){
+	 		iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;	
+			iGreenSoebel++;
+			iColSoebel++; 
+			}		
+			if (i > (0)*cw && i < (ch-2)*cw ){
+				iSum += iPic;
+	 	//	iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 		//	iOutput[i*4+1] =iOrginal[i*4+1]		;
+		//	iOutput[i*4+2] =255	;
+				
+			  }
+						
+		    } 		
+		}
+			// console.log(iSum);
+	return iSum;
+}
+
+function setLa_VH_BildWert_MeasurementCW(iOutput, iOrginal, iInput, iThreshold,iThreRed,iThresOrange,iThresGreen, iLine) { 
+var iPic=0;
+var cw=canvas.width  ;   
+var ch=canvas.height  ;   
+var iSum=0;
+let k ; 
+let l;
+let m;
+let n;
+let z ;	
+ iColSoebel=0;
+ iGreenSoebel=0; 
+ 
+	 k = 0;
+	 l = 1; 
+	 z = -4;
+    for(var i = cw+1; i < iInput.length-(cw-1); i+=1) {
+	 if (i% cw == 0 || i % cw == cw-1 ){    //
+	 	// 	iOutput[i*4+0] =0 	;
+ 		//	iOutput[i*4+1] =128	;
+		//	iOutput[i*4+2] =128	;
+				
+			} else { 
+			
+
+
+  // Laplace hor & Vert---------------
+			    /*    0     1      0
+                      1     -4     1        
+                      0     1      0       */
+
+
+             iPic =   Math.abs 
+                         ( k * iInput[i-cw-1] + l * iInput[i-cw]   + k * iInput[i-cw+1]
+						 +  l * iInput[i-1]    + z * iInput[i]      + l * iInput[i+1]
+						 +  k * iInput[i+cw-1] + l * iInput[i+cw]   + k * iInput[i+cw+1]);
+ 
+
+	
+			
+			if (iPic <= iThreshold){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =iOrginal[i*4+2]			;
+			iOutput[i*4+3] =255	;		
+			}	 else if  (iPic <= iThreshold+iThreRed){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			}  else if  (iPic <= iThreshold+iThreRed+iThresOrange){
+	 		iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =128	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			} else if  (iPic <= iThreshold+iThreRed+iThresOrange+iThresGreen){
+	 		iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;	
+			iGreenSoebel++;
+			iColSoebel++;
+			}		
+			if (i > (0)*cw && i < (ch-2)*cw ){
+				iSum += iPic;
+	 	//	iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 		//	iOutput[i*4+1] =iOrginal[i*4+1]		;
+		//	iOutput[i*4+2] =255	;
+				
+			  }
+						
+		    } 		
+		}
+
+	return iSum;
+}
+
+function setLa_VHD_BildWert_MeasurementCW(iOutput, iOrginal, iInput, iThreshold,iThreRed,iThresOrange,iThresGreen, iLine) { 
+var iPic=0;
+var cw=canvas.width  ;   
+var ch=canvas.height  ;   
+var iSum=0;
+let k ; 
+let l;
+let m;
+let n;
+let z ;	
+ iColSoebel=0;
+ iGreenSoebel=0; 
+	 k = 1;  
+	 l = 1;
+	 z = -8;
+    for(var i = cw+1; i < iInput.length-(cw-1); i+=1) {
+	 if (i% cw == 0 || i % cw == cw-1 ){    //
+	 	// 	iOutput[i*4+0] =0 	;
+ 		//	iOutput[i*4+1] =128	;
+		//	iOutput[i*4+2] =128	;
+				
+			} else { 
+			
+			// Laplace hor & Vert & diagonal---------------
+			    /*    1     1      1  
+                      1     -8     1        
+                      1     1      1       */			
+
+
+             iPic =   Math.abs 
+                         ( k * iInput[i-cw-1] + l * iInput[i-cw]   + k * iInput[i-cw+1]
+						 +  l * iInput[i-1]    + z * iInput[i]      + l * iInput[i+1]
+						 +  k * iInput[i+cw-1] + l * iInput[i+cw]   + k * iInput[i+cw+1]);
+
+
+
+
+			
+			
+			if (iPic <= iThreshold){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =iOrginal[i*4+2]			;
+			iOutput[i*4+3] =255	;		
+			}	 else if  (iPic <= iThreshold+iThreRed){
+  		    iOutput[i*4+0] =iOrginal[i*4+0]	;
+ 			iOutput[i*4+1] =0	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			}  else if  (iPic <= iThreshold+iThreRed+iThresOrange){
+	 		iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 			iOutput[i*4+1] =128	;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;
+			iColSoebel++;			
+			} else if  (iPic <= iThreshold+iThreRed+iThresOrange+iThresGreen){
+	 		iOutput[i*4+0] =0	;
+ 			iOutput[i*4+1] =iOrginal[i*4+1]		;
+			iOutput[i*4+2] =0		;
+			iOutput[i*4+3] =255	;	
+			iGreenSoebel++;
+			iColSoebel++;
+			}		
+			if (i > (0)*cw && i < (ch-2)*cw ){
+				iSum += iPic;
+	 	//	iOutput[i*4+0] =iOrginal[i*4+0]		;
+ 		//	iOutput[i*4+1] =iOrginal[i*4+1]		;
+		//	iOutput[i*4+2] =255	;
+				
+			  }
+						
+		    } 		
+		}
+	return iSum;
+}
+
+function fillCustomCanvasVideoWert(iSum, ctx2, options) {  
+var iCanvas =canvas2;
+	if (SoebelIndex >= 720) {
+		clearCanvas(iCanvas);
+		}
+
+		iCanvas.getContext("2d").clearRect(0, iCanvas.height -22, iCanvas.width, iCanvas.height);
+		
+		
+//	let  ctx2 = iCanvas.getContext("2d");
+	ctx2.textBaseline = "middle";
+	ctx2.font = "15px Courier-New";
+	ctx2.fillStyle="#000000";
+
+	ctx2.fillText("iSum:      "+iSum+         " ,  iGreen   :   "+ iGreenSoebel +   " ,  iColour:       "+iColSoebel , 0,options.zeroPoint - options.maxAmplitude); // 
+	ctx2.fillText("MaxSum(B): "+MaxSumSoebel+ " ,  MaxGreen(G): "+ MaxGreenSoebel + " ,  MaxCoulour(R): "+ MaxColSoebel, 0,options.zeroPoint - options.maxAmplitude -11); // 
+
+	ctx2.fillStyle="#cccccc";
+		if (iSum > MaxSumSoebel) {
+		MaxSumSoebel = iSum;
+		ctx2.fillStyle="#000000";
+		}
+
+		if (iColSoebel > MaxColSoebel) {
+		MaxColSoebel = iColSoebel;
+		ctx2.fillStyle="#cc0000";  
+		}
+
+		if (iGreenSoebel > MaxGreenSoebel) {
+		MaxGreenSoebel = iGreenSoebel;
+		ctx2.fillStyle="#00cc00";
+		}
+	
+	  
+		ctx2.fillRect(
+			SoebelIndex*options.step + options.textOffset,
+			options.zeroPoint-20,
+			options.step,
+			- iSum * options.maxAmplitude
+		);
+	
+	SoebelIndex++;
+	
+	
+
+}
+
+//---------------------------------------------------------------------------
+
+
+</script>  
+</body>
+</html>
